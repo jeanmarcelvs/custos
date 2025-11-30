@@ -4,9 +4,20 @@ import { buscarEProcessarProjeto } from './model.js';
 import { formatarMoeda } from './utils.js';
 
 function $(id) { return document.getElementById(id); }
+
+// Verifica se o usuário está logado, caso contrário, redireciona para o login
+if (!localStorage.getItem('authToken')) {
+  window.location.href = 'index.html';
+}
+
 const params = new URLSearchParams(location.search);
 const projectId = params.get('projectId');
 const overlay = $('loading-overlay');
+
+// Elementos da página
+const projectSearchContainer = $('project-search-container');
+const projectDetailsContainer = $('project-details-container');
+const projectSearchForm = $('project-search-form');
 
 function mostrarLoading(sim = true) {
   overlay?.classList.toggle('oculto', !sim);
@@ -14,7 +25,18 @@ function mostrarLoading(sim = true) {
 
 async function carregar(id) {
   if (!id) {
-    $('client-name-placeholder').textContent = 'Nenhum projeto selecionado.';
+    // Se não há ID, mostra a busca e esconde os detalhes
+    projectDetailsContainer?.classList.add('oculto');
+    projectSearchContainer?.classList.remove('oculto');
+
+    // Adiciona o listener para o formulário de busca
+    projectSearchForm?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const newProjectId = $('project-id-input').value;
+      if (newProjectId) {
+        window.location.href = `projeto.html?projectId=${encodeURIComponent(newProjectId)}`;
+      }
+    });
     return;
   }
 
@@ -22,6 +44,10 @@ async function carregar(id) {
 
   try {
     const dados = await buscarEProcessarProjeto(id);
+    // Se chegou aqui com um ID, esconde a busca e mostra os detalhes
+    projectDetailsContainer?.classList.remove('oculto');
+    projectSearchContainer?.classList.add('oculto');
+
     if (!dados) {
       alert('Erro ao carregar projeto. Veja console.');
       $('client-name-placeholder').textContent = `Projeto #${id} não encontrado.`;
@@ -92,6 +118,17 @@ async function carregar(id) {
 document.getElementById('btn-edit-page').addEventListener('click', () => {
   if (!projectId) return alert('Nenhum projeto selecionado.');
   window.location.href = `editar-projeto.html?projectId=${encodeURIComponent(projectId)}`;
+});
+
+document.getElementById('btn-logout').addEventListener('click', () => {
+  localStorage.removeItem('authToken');
+  window.location.href = 'index.html';
+});
+
+// NOVO: Adiciona o listener para o botão de logout na tela de busca
+document.getElementById('btn-logout-search').addEventListener('click', () => {
+  localStorage.removeItem('authToken');
+  window.location.href = 'index.html';
 });
 
 document.getElementById('btn-refresh').addEventListener('click', () => location.reload());

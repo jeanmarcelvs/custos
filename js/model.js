@@ -1,6 +1,6 @@
 // js/model.js
 // ==========================================
-// MODEL — versão ATUALIZADA para produção
+// MODEL — versão ATUALIZADA para produção com rastreamento de usuário
 // ==========================================
 
 // Importa cliente da API
@@ -12,13 +12,23 @@ function parsearCampoTexto(texto) {
     // Lógica de parsing que estava no controller, agora centralizada no model.
     const linhas = texto.split('\n');
     return linhas.filter(l => l.trim() !== '').map((linha, index) => {
-        if (!linha.includes(SEPARADOR)) return null;
         const partes = parseLinhaSeparador(linha);
-        // CORREÇÃO: Remove os pontos de milhar antes de converter para número.
-        const valorString = partes[1] || '0';
-        const valorNumerico = parseFloat(String(valorString).replace(/\./g, '').replace(',', '.')) || 0;
+        if (partes.length < 2) return null;
 
-        return { id: Date.now() + index, descricao: partes[0], valor: valorNumerico };
+        // Lógica para lidar com formato novo (com data) e antigo (sem data)
+        if (partes.length >= 4) { // Formato novo: user | date | desc | valor
+            const [user, date, descricao, valorStr] = partes;
+            const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
+            return { id: Date.now() + index, user, date, descricao, valor };
+        } else if (partes.length >= 3) { // Formato antigo: user | desc | valor
+            const [user, descricao, valorStr] = partes;
+            const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
+            return { id: Date.now() + index, user, date: null, descricao, valor }; // date é null
+        } else { // Formato mais antigo ainda: desc | valor
+            const [descricao, valorStr] = partes;
+            const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
+            return { id: Date.now() + index, user: null, date: null, descricao, valor }; // user e date são null
+        }
     }).filter(Boolean);
 }
 
@@ -26,38 +36,44 @@ function parsearCampoIndicacao(texto) {
     if (!texto) return [];
     const linhas = texto.split('\n');
     return linhas.filter(l => l.trim() !== '').map((linha, index) => {
-        if (!linha.includes(SEPARADOR)) return null;
         const partes = parseLinhaSeparador(linha);
-        if (partes.length < 3) return null; // Formato inválido para Indicação
+        if (partes.length < 3) return null;
 
-        const nome = partes[0];
-        const telefone = partes[1];
-        const valor = parseFloat(String(partes[2]).replace(/\./g, '').replace(',', '.')) || 0;
-
-        return { id: Date.now() + index, nome, telefone, valor };
+        if (partes.length >= 5) { // Formato novo: user | date | nome | tel | valor
+            const [user, date, nome, telefone, valorStr] = partes;
+            const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
+            return { id: Date.now() + index, user, date, nome, telefone, valor };
+        } else { // Formato antigo: user | nome | tel | valor
+            const [user, nome, telefone, valorStr] = partes;
+            const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
+            return { id: Date.now() + index, user, date: null, nome, telefone, valor };
+        }
     }).filter(Boolean);
 }
 function parsearCampoCombustivel(texto) {
     if (!texto) return [];
     return texto.split('\n').filter(l => l.trim() !== '').map((linha, index) => {
         const partes = parseLinhaSeparador(linha);
-        if (partes.length < 3) return null; // Formato inválido para combustível
+        if (partes.length < 4) return null;
 
-        const finalidade = partes[0];
-        const descricao = partes[1];
-        const valorLitro = converterStringParaNumero(partes[partes.length - 2]); // Penúltimo item é sempre o valor do litro
+        const hasDate = partes.length >= 5 && /^\d{4}-\d{2}-\d{2}$/.test(partes[1]);
+        const user = partes[0];
+        const date = hasDate ? partes[1] : null;
+        const finalidade = hasDate ? partes[2] : partes[1];
+        const descricao = hasDate ? partes[3] : partes[2];
+        const valorLitro = converterStringParaNumero(partes[partes.length - 2]);
 
         if (finalidade === 'Venda') {
+            const distancia = converterStringParaNumero(hasDate ? partes[4] : partes[3]);
             return {
-                id: Date.now() + index, finalidade, descricao,
-                distancia: converterStringParaNumero(partes[2]),
-                valorLitro: valorLitro
+                id: Date.now() + index, user, date, finalidade, descricao,
+                distancia, valorLitro
             };
         } else if (finalidade === 'Instalação') {
+            const litros = converterStringParaNumero(hasDate ? partes[4] : partes[3]);
             return {
-                id: Date.now() + index, finalidade, descricao,
-                litros: converterStringParaNumero(partes[2]),
-                valorLitro: valorLitro
+                id: Date.now() + index, user, date, finalidade, descricao,
+                litros, valorLitro
             };
         }
         return null;
@@ -316,3 +332,5 @@ export async function atualizarCampoUnico(projectId, fieldKey, novoConteudo, fie
 
     return await postCustomField(projectId, fieldId, novoConteudo);
 }
+
+export { getMe } from './api.js';

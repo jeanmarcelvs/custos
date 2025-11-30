@@ -4,7 +4,7 @@
 
 import { SEPARADOR, formatarLinhaSeparador, converterStringParaNumero } from './utils.js';
 
-const WORKER_URL = 'https://gdis-api-service.jeanmarcel-vs.workers.dev';
+const WORKER_URL = 'https://gdis-custos-service.jeanmarcel-vs.workers.dev';
 
 /**
  * Tratamento de erro padrão
@@ -180,4 +180,40 @@ export function formatarValorParaEnvio(valor, tipo = 'text') {
     if (tipo === 'money') return converterStringParaNumero(valor);
     if (tipo === 'textarea' || tipo === 'text') return valor ? valor.trim() : '';
     return valor;
+}
+
+// =================================================
+// AUTHENTICATION
+// =================================================
+
+export async function createUser(email, password) {
+    const response = await fetch(`${WORKER_URL}/auth/create-user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+    });
+    return response.json();
+}
+
+export async function login(email, password) {
+    const response = await fetch(`${WORKER_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+    });
+    return response.json();
+}
+
+export async function getMe() {
+    const token = localStorage.getItem('authToken');
+    if (!token) return { sucesso: false, user: null };
+
+    const response = await fetch(`${WORKER_URL}/auth/me`, {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        }
+    });
+    return response.json();
 }

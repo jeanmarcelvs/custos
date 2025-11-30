@@ -1,5 +1,5 @@
 import { formatarMoeda as formatCurrency, converterStringParaNumero as parseCurrency, formatarNumeroParaBR, parseLinhaParaItem, formatarInputMonetario, arredondarParaDuasCasas } from './utils.js';
-import { buscarEProcessarProjeto, atualizarCampoUnico, KEYS as API_KEYS } from './model.js';
+import { buscarEProcessarProjeto, atualizarCampoUnico, KEYS as API_KEYS, getMe } from './model.js';
 
 // Helper para selecionar elementos por ID
 const $ = (id) => document.getElementById(id);
@@ -19,6 +19,7 @@ const CONSUMO_FIXO = 10.6; // km/L
 
 let projectData = {};
 let projectId = null;
+let currentUserUsername = null; // NOVO: Armazena o nome de usuário logado
 let overlay; // Será inicializado no init
 
 function mostrarLoading(sim = true) {
@@ -272,18 +273,34 @@ function criarLinhaItemExistente(item, key) {
     row.className = 'item-row';
     row.dataset.itemId = item.id;
 
+    // LÓGICA DE PROPRIEDADE: Verifica se o usuário logado é o dono do item.
+    // Itens sem 'user' (antigos) podem ser editados por qualquer um.
+    const isOwner = !item.user || item.user === currentUserUsername;
+
+    if (!isOwner) {
+        row.classList.add('not-owned');
+        row.title = `Item criado por: ${item.user}. Você não pode editá-lo.`;
+    }
+
+
     if (key === KEYS.INDICACAO) {
         row.innerHTML = `
             <div class="item-details" style="flex: 1;">
-                <span>${item.nome || 'Sem nome'}</span>
-                <small>${item.telefone || ''}</small>
+                <span>${item.nome || 'Sem nome'}</span><br>
+                <small class="meta-info">${item.telefone || ''}</small>
+                <small class="meta-info owner-info">
+                    <i class="fas fa-user"></i> ${item.user || '?'} | <i class="fas fa-calendar-alt"></i> ${item.date ? new Date(item.date).toLocaleDateString('pt-BR') : 'N/A'}
+                </small>
             </div>
             <div class="item-value">${formatCurrency(item.valor)}</div>
         `;
     } else {
         row.innerHTML = `
             <div class="item-details">
-                <span>${item.descricao || 'Sem descrição'}</span>
+                <span>${item.descricao || 'Sem descrição'}</span><br>
+                <small class="meta-info owner-info">
+                    <i class="fas fa-user"></i> ${item.user || '?'} | <i class="fas fa-calendar-alt"></i> ${item.date ? new Date(item.date).toLocaleDateString('pt-BR') : 'N/A'}
+                </small>
             </div>
             <div class="item-value">${formatCurrency(item.valor)}</div>
         `;
@@ -292,15 +309,17 @@ function criarLinhaItemExistente(item, key) {
     const actions = document.createElement('div');
     actions.className = 'item-actions';
     actions.innerHTML = `
-        <button class="btn-action btn-edit" title="Editar"><i class="fas fa-edit"></i></button>
-        <button class="btn-action btn-delete" title="Remover"><i class="fas fa-trash-alt"></i></button>
+        <button class="btn-action btn-edit" title="Editar" ${!isOwner ? 'disabled' : ''}><i class="fas fa-edit"></i></button>
+        <button class="btn-action btn-delete" title="Remover" ${!isOwner ? 'disabled' : ''}><i class="fas fa-trash-alt"></i></button>
     `;
     row.appendChild(actions);
     
-    row.querySelector('.btn-edit').addEventListener('click', () => {
-        if (key === KEYS.INDICACAO) modoEdicaoIndicador(item, row);
-        else modoEdicao(item, row);
-    });
+    if (isOwner) {
+        row.querySelector('.btn-edit').addEventListener('click', () => {
+            if (key === KEYS.INDICACAO) modoEdicaoIndicador(item, row);
+            else modoEdicao(item, row);
+        });
+    }
 
     // Lógica de confirmação aprimorada para o botão de deletar
     const btnDelete = row.querySelector('.btn-delete');
@@ -588,12 +607,15 @@ async function salvarItem(key, itemId, data, rowElement) {
     // Salva o campo atualizado na API e recarrega os dados do projeto
     try {
         // Lógica unificada para todas as abas.
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
         const textoParaApi = projectData.itens[key].map(i => {
             // A aba de indicação tem um formato de texto diferente.
             if (key === KEYS.INDICACAO) {
-                return `${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
+                // CORREÇÃO: Usa o 'user' existente do item, ou o usuário atual se for um item novo.
+                return `${i.user || currentUserUsername} | ${i.id === itemId ? today : i.date} | ${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
             }
-            return `${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
+            // CORREÇÃO: Usa o 'user' existente do item, ou o usuário atual se for um item novo.
+            return `${i.user || currentUserUsername} | ${i.id === itemId ? today : i.date} | ${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
         }).join('\n');
 
         const fieldKey = API_KEYS[localKeyName.toUpperCase()];
@@ -625,11 +647,14 @@ async function removerItem(key, itemId) {
 
     projectData.itens[key] = projectData.itens[key].filter(i => i.id !== itemId);
 
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const textoParaApi = projectData.itens[key].map(i => {
         if (key === KEYS.INDICACAO) {
-            return `${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
+            // CORREÇÃO: Usa o 'user' existente do item para preservar a propriedade.
+            return `${i.user || currentUserUsername} | ${i.date || today} | ${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
         } else {
-            return `${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
+            // CORREÇÃO: Usa o 'user' existente do item para preservar a propriedade.
+            return `${i.user || currentUserUsername} | ${i.date || today} | ${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
         }
     }).join('\n');
 
@@ -735,44 +760,68 @@ function renderFuelGroup(section, type, item) {
         return;
     }
 
-    const displayWrapper = document.createElement('div');
-    displayWrapper.className = 'fuel-mode-display';
+    // LÓGICA DE PROPRIEDADE: Verifica se o usuário logado é o dono do item.
+    const isOwner = !item.user || item.user === currentUserUsername;
+
+    if (!isOwner) {
+        // Adiciona a classe ao grupo de combustível para feedback visual
+        section.classList.add('not-owned');
+        section.title = `Item criado por: ${item.user}. Você não pode editá-lo.`;
+    }
+
+    // CORREÇÃO: Cria uma estrutura de linha de item consistente com as outras abas.
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    if (!isOwner) {
+        row.classList.add('not-owned');
+    }
+
+    let custo = 0;
+    let detailsHTML = '';
 
     if (type === 'venda') {
-        const custo = (item.distancia * 2 / CONSUMO_FIXO) * item.valorLitro;
-        displayWrapper.innerHTML = /*html*/`
-            <div class="fuel-item-display"><span class="label">Descrição:</span><span class="value">${item.descricao}</span></div>
-            <div class="fuel-item-display"><span class="label">Distância (km):</span><span class="value">${item.distancia}</span></div>
-            <div class="fuel-item-display"><span class="label">Rendimento (km/L):</span><span class="value">${CONSUMO_FIXO}</span></div>
-            <div class="fuel-item-display"><span class="label">Preço/L:</span><span class="value">${formatCurrency(item.valorLitro)}</span></div>
-            <div class="fuel-item-display"><span class="label">Custo Total:</span><span class="value fuel-custo">${formatCurrency(custo)}</span></div>
+        custo = (item.distancia * 2 / CONSUMO_FIXO) * item.valorLitro;
+        detailsHTML = `
+            <div class="item-details-breakdown">
+                <span>Distância: <strong>${item.distancia} km</strong></span>
+                <span>Preço/L: <strong>${formatCurrency(item.valorLitro)}</strong></span>
+            </div>
         `;
     } else { // instalacao
-        const custo = item.litros * item.valorLitro;
-        displayWrapper.innerHTML = /*html*/`
-            <div class="fuel-item-display"><span class="label">Descrição:</span><span class="value">${item.descricao}</span></div>
-            <div class="fuel-item-display"><span class="label">Litros (L):</span><span class="value">${item.litros}</span></div>
-            <div class="fuel-item-display"><span class="label">Preço/L:</span><span class="value">${formatCurrency(item.valorLitro)}</span></div>
-            <div class="fuel-item-display"><span class="label">Custo Total:</span><span class="value fuel-custo">${formatCurrency(custo)}</span></div>
+        custo = item.litros * item.valorLitro;
+        detailsHTML = `
+            <div class="item-details-breakdown">
+                <span>Litros: <strong>${item.litros} L</strong></span>
+                <span>Preço/L: <strong>${formatCurrency(item.valorLitro)}</strong></span>
+            </div>
         `;
     }
 
-    const actionsWrapper = document.createElement('div');
-    actionsWrapper.className = 'item-actions';
+    row.innerHTML = `
+        <div class="item-details">
+            <span>${item.descricao || 'Combustível'}</span><br>
+            ${detailsHTML}
+            <small class="meta-info owner-info">
+                <i class="fas fa-user"></i> ${item.user || '?'} | <i class="fas fa-calendar-alt"></i> ${item.date ? new Date(item.date).toLocaleDateString('pt-BR') : 'N/A'}
+            </small>
+        </div>
+        <div class="item-value">${formatCurrency(custo)}</div>
+    `;
 
-    section.appendChild(displayWrapper);
     const btnEdit = document.createElement('button');
     btnEdit.className = 'btn-action btn-edit';
-    btnEdit.title = 'Editar item de combustível';
+    btnEdit.title = isOwner ? 'Editar item de combustível' : `Criado por ${item.user}`;
     btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
-    btnEdit.onclick = () => modoEdicaoCombustivel(section, type, item);
+    btnEdit.disabled = !isOwner; // Desabilita o botão se não for o dono
+    if (isOwner) {
+        btnEdit.onclick = () => modoEdicaoCombustivel(section, type, item);
+    }
 
     const btnDelete = document.createElement('button');
     btnDelete.className = 'btn-action btn-delete';
-    btnDelete.title = 'Remover item de combustível';
+    btnDelete.title = isOwner ? 'Remover item de combustível' : `Criado por ${item.user}`;
     btnDelete.innerHTML = '<i class="fas fa-trash-alt"></i>';
-
-    // Lógica de confirmação para o botão de deletar combustível
+    btnDelete.disabled = !isOwner; // Desabilita o botão se não for o dono
     btnDelete.addEventListener('click', (e) => {
         e.stopPropagation();
         if (btnDelete.classList.contains('confirm-delete')) {
@@ -792,36 +841,8 @@ function renderFuelGroup(section, type, item) {
         }
     });
 
-    actionsWrapper.append(btnEdit, btnDelete);
-    section.appendChild(actionsWrapper);
-}
-
-async function removerItemCombustivel(typeToRemove) {
-    const { vendaItem, instalacaoItem } = getCombustivelItens();
-    const remainingItem = typeToRemove === 'venda' ? instalacaoItem : vendaItem;
-
-    const textoParaApi = remainingItem ? 
-        (remainingItem.finalidade === 'Venda' ? 
-            `${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR((remainingItem.distancia * 2 / CONSUMO_FIXO) * remainingItem.valorLitro)}` :
-            `${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.litros} | 0 | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR(remainingItem.litros * remainingItem.valorLitro)}`)
-        : '';
-
-    try {
-        mostrarLoading(true);
-        await atualizarCampoUnico(projectId, API_KEYS.COMBUSTIVEL, textoParaApi, projectData.fieldIds);
-
-        // CORREÇÃO: Calcula e salva o campo de TOTAL de combustível após a remoção.
-        const { vendaItem: v, instalacaoItem: i } = getCombustivelItens();
-        const custoVenda = v ? (v.distancia * 2 / CONSUMO_FIXO) * v.valorLitro : 0;
-        const custoInstalacao = i ? i.litros * i.valorLitro : 0;
-        await atualizarCampoUnico(projectId, API_KEYS.TOTAL_COMBUSTIVEL, (custoVenda + custoInstalacao).toString(), projectData.fieldIds);
-    } catch (error) {
-        console.error("Falha ao remover item de combustível:", error);
-        alert("Ocorreu um erro ao remover o item. Tente novamente.");
-    } finally {
-        // Atualiza toda a UI com os dados mais recentes, mantendo a aba ativa.
-        await refreshDataAndUI();
-    }
+    row.append(btnEdit, btnDelete);
+    section.appendChild(row);
 }
 
 function modoEdicaoCombustivel(section, type, item) {
@@ -950,15 +971,16 @@ function modoEdicaoCombustivel(section, type, item) {
 
             const { vendaItem, instalacaoItem } = getCombustivelItens();
             const otherItem = type === 'venda' ? instalacaoItem : vendaItem;
-            const newCombustivelItens = [newItemData];
+            const newCombustivelItens = [{...newItemData, user: currentUserUsername}]; // Adiciona o usuário
             if (otherItem) newCombustivelItens.push(otherItem);
-
+            
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
             const textoParaApi = newCombustivelItens.map(item => {
-                if (item.finalidade === 'Venda') return `${item.finalidade} | ${item.descricao} | ${item.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR((item.distancia * 2 / CONSUMO_FIXO) * item.valorLitro)}`;
-                return `${item.finalidade} | ${item.descricao} | ${item.litros} | 0 | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR(item.litros * item.valorLitro)}`;
+                if (item.finalidade === 'Venda') return `${item.user} | ${item.date || today} | ${item.finalidade} | ${item.descricao} | ${item.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR((item.distancia * 2 / CONSUMO_FIXO) * item.valorLitro)}`;
+                return `${item.user} | ${item.date || today} | ${item.finalidade} | ${item.descricao} | ${item.litros} | 0 | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR(item.litros * item.valorLitro)}`;
             }).join('\n');
 
-            salvarDadosCombustivel(textoParaApi, section, type, newItemData);
+            salvarDadosCombustivel(textoParaApi, newCombustivelItens);
 
         } else {
             // Primeiro clique: arma o botão
@@ -977,17 +999,21 @@ function modoEdicaoCombustivel(section, type, item) {
     });
 }
 
-async function salvarDadosCombustivel(textoParaApi, section, type, newItemData) {
+async function salvarDadosCombustivel(textoParaApi, newCombustivelItens) {
         mostrarLoading(true);
         try {
             // 1. Salva o campo de texto com a lista de itens
             await atualizarCampoUnico(projectId, API_KEYS.COMBUSTIVEL, textoParaApi, projectData.fieldIds);
 
-            // 2. CORREÇÃO: Calcula e salva o campo de TOTAL de combustível.
-            const { vendaItem, instalacaoItem } = getCombustivelItens();
-            const custoVenda = vendaItem ? (vendaItem.distancia * 2 / CONSUMO_FIXO) * vendaItem.valorLitro : 0;
-            const custoInstalacao = instalacaoItem ? instalacaoItem.litros * instalacaoItem.valorLitro : 0;
+            // 2. CORREÇÃO: Calcula o novo total de combustível a partir dos itens que acabaram de ser formatados,
+            // em vez de usar os dados antigos de `projectData`.
+            const novoCustoVenda = newCombustivelItens.find(i => i.finalidade === 'Venda');
+            const novoCustoInstalacao = newCombustivelItens.find(i => i.finalidade === 'Instalação');
+
+            const custoVenda = novoCustoVenda ? (novoCustoVenda.distancia * 2 / CONSUMO_FIXO) * novoCustoVenda.valorLitro : 0;
+            const custoInstalacao = novoCustoInstalacao ? novoCustoInstalacao.litros * novoCustoInstalacao.valorLitro : 0;
             const totalCombustivel = arredondarParaDuasCasas(custoVenda + custoInstalacao);
+
             await atualizarCampoUnico(projectId, API_KEYS.TOTAL_COMBUSTIVEL, totalCombustivel.toString(), projectData.fieldIds);
 
             // 3. Atualiza a UI com os dados mais recentes.
@@ -999,6 +1025,21 @@ async function salvarDadosCombustivel(textoParaApi, section, type, newItemData) 
         } finally {
             mostrarLoading(false);
         }
+}
+async function removerItemCombustivel(typeToRemove) {
+    const { vendaItem, instalacaoItem } = getCombustivelItens();
+    const remainingItem = typeToRemove === 'venda' ? instalacaoItem : vendaItem;
+
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const textoParaApi = remainingItem ? 
+        (remainingItem.finalidade === 'Venda' ? 
+            `${remainingItem.user} | ${remainingItem.date || today} | ${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR((remainingItem.distancia * 2 / CONSUMO_FIXO) * remainingItem.valorLitro)}` :
+            `${remainingItem.user} | ${remainingItem.date || today} | ${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.litros} | 0 | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR(remainingItem.litros * remainingItem.valorLitro)}`)
+        : '';
+
+    // Passa a lista de itens restantes (que pode ser vazia) para a função de salvar.
+    const newCombustivelItens = remainingItem ? [remainingItem] : [];
+    await salvarDadosCombustivel(textoParaApi, newCombustivelItens);
 }
 
 async function init() {
@@ -1012,6 +1053,20 @@ async function init() {
     alert('ID do projeto não fornecido.');
     window.location.href = 'index.html';
     return;
+  }
+  
+  // NOVO: Busca os dados do usuário logado
+  try {
+    const userData = await getMe();
+    if (userData.sucesso && userData.user.email) {
+      currentUserUsername = userData.user.email.split('@')[0];
+      console.log(`[AUTH] Usuário logado: ${currentUserUsername}`);
+    } else {
+      throw new Error('Token inválido ou expirado.');
+    }
+  } catch (authError) {
+    alert('Sua sessão expirou. Por favor, faça login novamente.');
+    window.location.href = 'index.html';
   }
 
   try {

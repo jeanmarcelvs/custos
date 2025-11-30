@@ -56,6 +56,8 @@ img{max-width:100%;height:auto;display:block}
 .w-full { width: 100%; }
 .flex { display: flex; }
 .center { display: flex; align-items: center; justify-content: center; }
+.text-center { text-align: center; }
+.mt-2 { margin-top: 0.5rem; } /* 8px */
 .hidden { display: none !important; }
 
 /* =====================
@@ -193,7 +195,7 @@ header.site-header h1{margin:0;color:var(--primary);font-size:1.25rem}
 .item-row {
   display: flex;
   gap: 1rem; /* Espaçamento maior entre os elementos */
-  align-items: center;
+  align-items: center; /* Revertido para 'center' para alinhar verticalmente */
   padding: 0.8rem 1rem; /* Padding interno */
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -206,6 +208,23 @@ header.site-header h1{margin:0;color:var(--primary);font-size:1.25rem}
 .item-row:hover {
   box-shadow: 0 2px 8px rgba(16,24,40,0.05);
   border-color: var(--primary); /* Borda primária no hover */
+}
+
+/* NOVO: Garante que a descrição principal ocupe o espaço e empurre os outros elementos */
+.item-details {
+  flex: 1; /* Faz com que este elemento cresça e ocupe o espaço disponível */
+}
+
+/* NOVO: Estilo para a informação de metadados (usuário/data) */
+.meta-info {
+  display: block; /* Garante que o small ocupe a linha inteira */
+  font-size: 0.8rem; /* Um pouco menor para ser discreto */
+  color: var(--muted);
+}
+
+.owner-info {
+  margin-top: 6px; /* Adiciona o espaçamento vertical solicitado */
+  opacity: 0.8; /* Levemente mais sutil */
 }
 
 /* NOVO: Estilo unificado para mensagens de estado vazio em todas as abas */
@@ -460,6 +479,11 @@ textarea::placeholder,
 .loading-overlay.oculto {
   opacity: 0;
   pointer-events: none;
+}
+
+/* NOVO: Classe genérica para ocultar elementos */
+.oculto {
+  display: none !important;
 }
 
 
