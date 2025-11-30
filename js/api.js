@@ -42,25 +42,22 @@ export async function getProject(projectId) {
     const endpoint = `/solarmarket/projects/${projectId}`;
     const fullUrl = `${WORKER_URL}${endpoint}`;
 
-    console.log('[GET PROJECT] →', fullUrl);
-
     try {
+        console.log('[GET PROJECT] →', fullUrl);
         const response = await fetch(fullUrl);
 
         if (!response.ok) return await handleApiError(response, endpoint, 'GET');
 
-        const dados = await response.json();
+        const { data } = await response.json();
 
         // Garantia: campos monetários vêm como number
-        if (dados.data) {
-            for (const key in dados.data) {
-                if (dados.data[key] && !isNaN(dados.data[key])) {
-                    dados.data[key] = converterStringParaNumero(dados.data[key]);
-                }
+        for (const key in data) {
+            if (data[key] && !isNaN(data[key])) {
+                data[key] = converterStringParaNumero(data[key]);
             }
         }
 
-        return { sucesso: true, dados: dados.data };
+        return { sucesso: true, dados: data };
 
     } catch (err) {
         console.error('[GET PROJECT] Erro:', err);
