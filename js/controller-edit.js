@@ -67,7 +67,10 @@ function initializeEditorUI() {
         </div>
       `).join('')}
       <div class="editor-section" id="sec-combustivel" data-key="combustivel">
-        <div class="group-total"><span>Total</span><strong id="total-combustivel">R$ 0,00</strong></div>
+        <div class="section-summary">
+          <div class="group-total"><span>Total</span><strong id="total-combustivel">R$ 0,00</strong></div>
+          <div class="attachment-list" id="attachments-combustivel"></div>
+        </div>
       </div>
       <div class="editor-section" id="sec-alimentacao" data-key="alimentacao" data-container="lista-alimentacao">
         <div id="lista-alimentacao"></div>
@@ -94,15 +97,16 @@ function initializeEditorUI() {
  * NOVO: Renderiza a lista de comprovantes para todas as seções.
  */
 function renderizarComprovantes() {
+    // CORREÇÃO: O mapa agora usa as chaves locais (como 'combustivel') em vez das chaves da API.
     const attachmentMap = {
-        [KEYS.DESPESAS_PROJETO]: API_KEYS.COMPROVANTES_DESP_PROJETO,
-        [KEYS.DESPESAS_FIXAS]: API_KEYS.COMPROVANTES_DESP_FIXAS,
-        [KEYS.MATERIAL]: API_KEYS.COMPROVANTES_MATERIAL,
-        [KEYS.FERRAMENTA]: API_KEYS.COMPROVANTES_ALUGUEIS,
-        [KEYS.DIARIAS]: API_KEYS.COMPROVANTES_DIARIAS, // CORREÇÃO: Apontando para o campo de comprovantes correto.
-        [KEYS.ALIMENTACAO]: API_KEYS.COMPROVANTES_ALIMENTACAO,
-        [KEYS.INDICACAO]: API_KEYS.COMPROVANTE_INDICACAO,
-        [KEYS.COMBUSTIVEL]: API_KEYS.COMPROVANTES_COMBUSTIVEL,
+        'despProjeto': API_KEYS.COMPROVANTES_DESP_PROJETO,
+        'despFixasGerais': API_KEYS.COMPROVANTES_DESP_FIXAS,
+        'material': API_KEYS.COMPROVANTES_MATERIAL,
+        'ferramenta': API_KEYS.COMPROVANTES_ALUGUEIS,
+        'diarias': API_KEYS.COMPROVANTES_DIARIAS,
+        'alimentacao': API_KEYS.COMPROVANTES_ALIMENTACAO,
+        'indicacao': API_KEYS.COMPROVANTE_INDICACAO,
+        'combustivel': API_KEYS.COMPROVANTES_COMBUSTIVEL,
     };
 
     for (const localKey in attachmentMap) {
@@ -712,11 +716,8 @@ function lockInterface(lock = true) {
 
 function renderCombustivelSection() {
     const container = $('sec-combustivel');
-    // Preserva o elemento de total, se ele existir, e limpa o resto.
-    const totalContainer = container.querySelector('.group-total');
-    container.innerHTML = ''; // Limpa o conteúdo
-    if (totalContainer) container.appendChild(totalContainer); // Re-adiciona o total
-
+    // CORREÇÃO: Remove apenas os grupos de combustível antigos, preservando o container de anexos.
+    container.querySelectorAll('.fuel-group').forEach(group => group.remove());
 
     const vendaSection = document.createElement('section');
     vendaSection.className = 'fuel-group';
@@ -726,8 +727,10 @@ function renderCombustivelSection() {
     instalacaoSection.className = 'fuel-group';
     instalacaoSection.id = 'fuel-instalacao';
 
-    // Insere os grupos de combustível ANTES do container do total
-    container.prepend(vendaSection, instalacaoSection);
+    // Insere os novos grupos de combustível no início do container da aba.
+    const summaryContainer = container.querySelector('.section-summary');
+    container.insertBefore(vendaSection, summaryContainer);
+    container.insertBefore(instalacaoSection, summaryContainer);
 
     const { vendaItem, instalacaoItem } = getCombustivelItens();
 
