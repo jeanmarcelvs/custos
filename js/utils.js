@@ -1,19 +1,13 @@
 /**
- * js/utils.js — VERSÃO ATUALIZADA PARA PRODUÇÃO
- * Funções puras para formatação e parsing de dados da SolarMarket.
+ * Separador padrão usado em campos de texto com múltiplos valores.
+ * @constant {string}
  */
-
-/* ============================
-   Separador padrão
-   ============================ */
 export const SEPARADOR = ' | ';
 
-/* ============================
-   Formatação de valores e datas
-   ============================ */
-
 /**
- * Formata número para moeda BRL (R$ 1.200,50)
+ * Formata um valor numérico como moeda brasileira (BRL).
+ * @param {number | string | null | undefined} valor - O valor a ser formatado.
+ * @returns {string} O valor formatado como moeda (ex: "R$ 1.234,56").
  */
 export function formatarMoeda(valor) {
     if (valor === null || valor === undefined || isNaN(valor)) return 'R$ 0,00';
@@ -21,7 +15,9 @@ export function formatarMoeda(valor) {
 }
 
 /**
- * Formata número para BRL sem símbolo (0,00)
+ * Formata um número para o padrão brasileiro com duas casas decimais, sem o símbolo da moeda.
+ * @param {number | string} valor - O valor a ser formatado.
+ * @returns {string} O número formatado (ex: "1234,56").
  */
 export function formatarNumeroParaBR(valor) {
     const n = Number(valor) || 0;
@@ -29,7 +25,9 @@ export function formatarNumeroParaBR(valor) {
 }
 
 /**
- * Formata data ISO para BR (dd/mm/yyyy)
+ * Formata uma string de data (ou objeto Date) para o formato de data brasileiro (dd/mm/yyyy).
+ * @param {string | Date} dataString - A data a ser formatada.
+ * @returns {string} A data formatada ou '-' se a entrada for inválida.
  */
 export function formatarData(dataString) {
     if (!dataString) return '-';
@@ -38,15 +36,18 @@ export function formatarData(dataString) {
 }
 
 /**
- * NOVO: Arredonda um número para 2 casas decimais para evitar erros de float.
- * Ex: 103.0399999 se torna 103.04
+ * Arredonda um número para duas casas decimais para evitar imprecisões de ponto flutuante.
+ * @param {number} num - O número a ser arredondado.
+ * @returns {number} O número arredondado.
  */
 export function arredondarParaDuasCasas(num) {
     return Math.round((num + Number.EPSILON) * 100) / 100;
 }
 
 /**
- * Converte string monetária ("R$ 1.200,50" ou "1200,50") para número float
+ * Converte uma string (potencialmente em formato monetário brasileiro) para um número.
+ * @param {string | number | null | undefined} valor - A string a ser convertida.
+ * @returns {number} O número resultante. Retorna 0 se a conversão falhar.
  */
 export function converterStringParaNumero(valor) {
     if (valor === null || valor === undefined || valor === '') return 0;
@@ -55,21 +56,16 @@ export function converterStringParaNumero(valor) {
     let str = valor.toString().trim();
     str = str.replace('R$', '').trim();
 
-    // Se a string contém vírgula, assume-se formato BR (1.234,56) e removemos os pontos.
-    // Se não, assume-se formato internacional (1234.56) e não removemos o ponto.
     if (str.includes(',')) {
         str = str.replace(/\./g, '').replace(',', '.');
     }
     return parseFloat(str) || 0;
 }
 
-/* ============================
-   Funções de linhas separadas por " | "
-   ============================ */
-
 /**
- * Parseia uma linha de texto padronizada com " | "
- * Retorna array de strings
+ * Divide uma string em um array de partes, usando o SEPARADOR padrão.
+ * @param {string} linha - A string a ser dividida.
+ * @returns {string[]} Um array com as partes da string.
  */
 export function parseLinhaSeparador(linha) {
     if (!linha || linha.trim() === '') return [];
@@ -77,7 +73,9 @@ export function parseLinhaSeparador(linha) {
 }
 
 /**
- * Transforma array de strings em linha padronizada
+ * Junta um array de itens em uma única string, usando o SEPARADOR padrão.
+ * @param {any[]} itens - O array de itens a serem juntados.
+ * @returns {string} A string resultante.
  */
 export function formatarLinhaSeparador(itens) {
     if (!Array.isArray(itens) || itens.length === 0) return '';
@@ -85,14 +83,13 @@ export function formatarLinhaSeparador(itens) {
 }
 
 /* ============================
-   Funções específicas de Combustível
+   Funções de Parsing de Itens
    ============================ */
 
 /**
- * Parseia uma linha de combustível ou quilometragem genérica
- * Formato esperado: "Finalidade | Tipo | Valor"
- * Retorna objeto {finalidade, tipo, valor}
- * Caso linha com apenas 2 campos: {descricao, valor}
+ * Parseia uma linha de texto genérica em um objeto com descrição e valor.
+ * @param {string} linha - A linha a ser parseada (ex: "Finalidade | Tipo | 123,45" ou "Descrição | 123,45").
+ * @returns {{finalidade?: string, tipo?: string, descricao?: string, valor: number} | null}
  */
 export function parseLinhaParaItem(linha) {
     if (!linha || linha.trim() === '') return null;
@@ -116,7 +113,9 @@ export function parseLinhaParaItem(linha) {
 }
 
 /**
- * Converte objeto de combustível em linha de texto padronizada
+ * Formata um objeto de item de combustível em uma string padronizada.
+ * @param {object} item - O objeto do item.
+ * @returns {string} A string formatada.
  */
 export function formatCombustivelParaLinha(item) {
   if (!item || typeof item !== 'object') {
@@ -146,8 +145,9 @@ export function formatCombustivelParaLinha(item) {
 }
 
 /**
- * Parseia uma linha completa de combustível do SolarMarket.
- * Formato: Finalidade | Descrição | Distancia/Litros | Consumo | ValorLitro | Total
+ * Parseia uma linha completa de dados de combustível.
+ * @param {string} linha - A linha de texto a ser parseada.
+ * @returns {object | null} Um objeto com os dados de combustível ou null se o formato for inválido.
  */
 export function parseLinhaCombustivelCompleta(linha) {
     if (!linha || linha.trim() === '') return null;
@@ -180,12 +180,13 @@ export function parseLinhaCombustivelCompleta(linha) {
 }
 
 /* ============================
-   Funções para campos monetários
+   Funções de UI e Formatação
    ============================ */
 
 /**
- * Parseia linha monetária: "210,00 | Escada" ou "210,00"
- * Retorna objeto {valor, descricao}
+ * Parseia uma linha de texto que contém um valor monetário e uma descrição opcional.
+ * @param {string} linha - A linha a ser parseada.
+ * @returns {{valor: number, descricao: string} | null}
  */
 export function parseLinhaMonetaria(linha) {
     if (!linha || linha.trim() === '') return null;
@@ -196,7 +197,9 @@ export function parseLinhaMonetaria(linha) {
 }
 
 /**
- * Formata objeto monetário para linha padronizada
+ * Formata um objeto com valor e descrição em uma string padronizada.
+ * @param {{valor: number, descricao?: string}} item - O objeto a ser formatado.
+ * @returns {string} A string formatada.
  */
 export function formatLinhaMonetaria(item) {
     if (!item) return '';
@@ -207,7 +210,7 @@ export function formatLinhaMonetaria(item) {
 }
 
 /**
- * Formata o valor de um input em tempo real para o formato monetário BRL.
+ * Formata o valor de um campo de input em tempo real para o formato de moeda BRL.
  * @param {HTMLInputElement} inputElement - O elemento de input a ser formatado.
  */
 export function formatarInputMonetario(inputElement) {
@@ -223,11 +226,13 @@ export function formatarInputMonetario(inputElement) {
 }
 
 /* ============================
-   Funções auxiliares adicionais
+   Funções de Agregação
    ============================ */
 
 /**
- * Somatório de uma lista de objetos com atributo 'valor'
+ * Soma os valores de uma lista de itens, com lógica especial para itens de combustível.
+ * @param {Array<object>} lista - A lista de itens a serem somados.
+ * @returns {number} O total somado.
  */
 export function somaListaValores(lista) {
     if (!Array.isArray(lista)) return 0;

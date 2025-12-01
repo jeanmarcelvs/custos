@@ -1,103 +1,119 @@
 import { formatarMoeda as formatCurrency, converterStringParaNumero as parseCurrency, formatarNumeroParaBR, parseLinhaParaItem, formatarInputMonetario, arredondarParaDuasCasas } from './utils.js';
 import { buscarEProcessarProjeto, atualizarCampoUnico, KEYS as API_KEYS, getMe } from './model.js';
 
-// Helper para selecionar elementos por ID
+/**
+ * Atalho para document.getElementById.
+ * @param {string} id O ID do elemento.
+ * @returns {HTMLElement | null}
+ */
 const $ = (id) => document.getElementById(id);
 
+/** Mapeamento de chaves locais para as categorias de custo. */
 const KEYS = {
   DESPESAS_PROJETO: 'despProjeto',
   DESPESAS_FIXAS: 'despFixasGerais',
   MATERIAL: 'material',
   FERRAMENTA: 'ferramenta',
   DIARIAS: 'diarias',
-  ALIMENTACAO: 'alimentacao', // Esta chave não tem uma lista de itens no model, apenas um total.
+  ALIMENTACAO: 'alimentacao',
   INDICACAO: 'indicacao',
   COMBUSTIVEL: 'combustivel',
 };
 
+/** Consumo fixo de combustível em km/L. */
 const CONSUMO_FIXO = 10.6; // km/L
 
+// --- Estado da Aplicação ---
 let projectData = {};
 let projectId = null;
-let currentUserUsername = null; // NOVO: Armazena o nome de usuário logado
-let overlay; // Será inicializado no init
+let currentUserUsername = null;
 
+/**
+ * Exibe ou oculta a tela de carregamento.
+ * @param {boolean} [mostrar=true] - True para exibir, false para ocultar.
+ */
 function mostrarLoading(sim = true) {
-  if (!overlay) overlay = $('loading-overlay');
-  overlay?.classList.toggle('oculto', !sim);
+  $('loading-overlay')?.classList.toggle('oculto', !sim);
 }
 
+/**
+ * Bloqueia ou desbloqueia a interface para evitar ações conflitantes durante a edição.
+ * @param {boolean} [lock=true] - True para bloquear, false para desbloquear.
+ */
+function lockInterface(lock = true) {
+    document.body.classList.toggle('is-locked-for-editing', lock);
+}
+
+/**
+ * Cria dinamicamente a estrutura de abas e seções do editor.
+ * @returns {boolean} True se a UI foi inicializada com sucesso, false caso contrário.
+ */
 function initializeEditorUI() {
   const editorSections = $('editor-sections');
-  // Verificação de segurança para garantir que o container existe.
   if (!editorSections) {
     console.error("ERRO CRÍTICO: O container 'editor-sections' não foi encontrado no DOM.");
-    return false; // Retorna false em caso de falha
+    return false;
   }
 
   const sections = [
     { title: 'Projeto', key: KEYS.DESPESAS_PROJETO, listId: 'lista-despesas-projeto' },
     { title: 'Fixa/Admin', key: KEYS.DESPESAS_FIXAS, listId: 'lista-despFixasGerais' },
-    { title: 'Indicação', key: KEYS.INDICACAO, listId: 'lista-indicacao' },
     { title: 'Material Inst.', key: KEYS.MATERIAL, listId: 'lista-material' },
     { title: 'Diárias/M.O.', key: KEYS.DIARIAS, listId: 'lista-diarias' },
-    { title: 'Aluguel', key: KEYS.FERRAMENTA, listId: 'lista-ferramenta' }
+    { title: 'Aluguel', key: KEYS.FERRAMENTA, listId: 'lista-ferramenta' },
+    { title: 'Indicação', key: KEYS.INDICACAO, listId: 'lista-indicacao' },
   ];
 
-  // Cria a navegação das abas e o container para o conteúdo
   const tabsNavHTML = `
     <div class="tabs-nav">
       ${sections.map((s, index) => `<button class="tab-link ${index === 0 ? 'active' : ''}" data-tab="sec-${s.listId.replace('lista-', '')}">${s.title}</button>`).join('')}
-      <button class="tab-link" data-tab="sec-combustivel">Combustível</button><button class="tab-link" data-tab="sec-alimentacao">Alimentação</button>
+      <button class="tab-link" data-tab="sec-combustivel">Combustível</button>
+      <button class="tab-link" data-tab="sec-alimentacao">Alimentação</button>
     </div>
   `;
 
   const tabsContentHTML = `
     <div class="tabs-content">
-      ${sections.map(s => `
-        <div class="editor-section" id="sec-${s.listId.replace('lista-', '')}" data-key="${s.key}" data-container="${s.listId}">
-          <div id="${s.listId}"></div>
-          <div class="controls">
-            <button class="btn-action btn-add-item" title="Adicionar item"><i class="fas fa-plus"></i></button>
-          </div>
-          <div class="section-summary">
-            <div class="group-total"><span>Total</span><strong id="total-${s.key}">R$ 0,00</strong></div>
-            <div class="attachment-list" id="attachments-${s.key}"></div>
-          </div>
-        </div>
-      `).join('')}
+      ${sections.map(s => createSectionHTML(s.key, s.listId)).join('')}
       <div class="editor-section" id="sec-combustivel" data-key="combustivel">
         <div class="section-summary">
           <div class="group-total"><span>Total</span><strong id="total-combustivel">R$ 0,00</strong></div>
           <div class="attachment-list" id="attachments-combustivel"></div>
         </div>
       </div>
-      <div class="editor-section" id="sec-alimentacao" data-key="alimentacao" data-container="lista-alimentacao">
-        <div id="lista-alimentacao"></div>
-        <div class="controls">
-          <button class="btn-action btn-add-item" title="Adicionar item"><i class="fas fa-plus"></i></button>
-        </div>
-        <div class="section-summary">
-          <div class="group-total"><span>Total</span><strong id="total-alimentacao">R$ 0,00</strong></div>
-          <div class="attachment-list" id="attachments-alimentacao"></div>
-        </div>
-      </div>
+      ${createSectionHTML(KEYS.ALIMENTACAO, 'lista-alimentacao')}
     </div>
   `;
 
   editorSections.innerHTML = tabsNavHTML + tabsContentHTML;
-
-  // Garante que os dados sejam carregados e os eventos configurados APÓS o HTML estar no DOM.
-  loadAllSections();
-  setupEventListeners();
-  return true; // Retorna true em caso de sucesso
+  return true;
 }
 
 /**
- * NOVO: Renderiza a lista de comprovantes para todas as seções.
+ * Gera o HTML para uma seção de editor padrão.
+ * @param {string} key - A chave da seção (ex: 'material').
+ * @param {string} listId - O ID do container da lista de itens.
+ * @returns {string} O HTML da seção.
+ */
+function createSectionHTML(key, listId) {
+  return `
+    <div class="editor-section" id="sec-${listId.replace('lista-', '')}" data-key="${key}" data-container="${listId}">
+      <div id="${listId}"></div>
+      <div class="controls">
+        <button class="btn-action btn-add-item" title="Adicionar item"><i class="fas fa-plus"></i></button>
+      </div>
+      <div class="section-summary">
+        <div class="group-total"><span>Total</span><strong id="total-${key}">R$ 0,00</strong></div>
+        <div class="attachment-list" id="attachments-${key}"></div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Renderiza as listas de comprovantes para todas as seções.
  */
 function renderizarComprovantes() {
-    // CORREÇÃO: O mapa agora usa as chaves locais (como 'combustivel') em vez das chaves da API.
     const attachmentMap = {
         'despProjeto': API_KEYS.COMPROVANTES_DESP_PROJETO,
         'despFixasGerais': API_KEYS.COMPROVANTES_DESP_FIXAS,
@@ -111,22 +127,20 @@ function renderizarComprovantes() {
 
     for (const localKey in attachmentMap) {
         const apiKey = attachmentMap[localKey];
-        const containerId = `attachments-${localKey}`;
-        const container = $(containerId);
+        const container = $(`attachments-${localKey}`);
 
         if (container && projectData.rawFields && projectData.rawFields[apiKey]) {
-            // CORREÇÃO: Garante que o valor seja tratado como string antes de usar .split()
             const valorComoString = String(projectData.rawFields[apiKey] || '');
             const urls = valorComoString.split('\n').filter(url => url.trim() !== '');
             if (urls.length > 0) {
                 container.innerHTML = '<h4>Comprovantes</h4>';
                 const list = document.createElement('ul');
                 urls.forEach(url => {
-                    const listItem = document.createElement('li');
                     const link = document.createElement('a');
                     link.href = url;
-                    link.textContent = url.substring(url.lastIndexOf('/') + 1); // Mostra apenas o nome do arquivo
-                    link.target = '_blank'; // Abre em nova aba
+                    link.textContent = url.substring(url.lastIndexOf('/') + 1);
+                    link.target = '_blank';
+                    const listItem = document.createElement('li');
                     listItem.appendChild(link);
                     list.appendChild(listItem);
                 });
@@ -136,12 +150,14 @@ function renderizarComprovantes() {
     }
 }
 
+/**
+ * Configura os event listeners principais da página do editor.
+ */
 function setupEventListeners() {
   $('btn-voltar').addEventListener('click', () => {
-    window.location.href = `projeto.html?projectId=${projectId}`; // Manter o botão voltar
+    window.location.href = `projeto.html?projectId=${projectId}`;
   });
 
-  // Lógica para troca de abas
   const tabLinks = document.querySelectorAll('.tab-link');
   const tabPanes = document.querySelectorAll('.editor-section');
 
@@ -166,6 +182,9 @@ function setupEventListeners() {
   });
 }
 
+/**
+ * Carrega os dados em todas as seções do editor.
+ */
 function loadAllSections() {
   // Recria a mesma estrutura de seções para garantir consistência
   const sections = [
@@ -174,7 +193,8 @@ function loadAllSections() {
     { key: KEYS.INDICACAO, listId: 'lista-indicacao' },
     { key: KEYS.MATERIAL, listId: 'lista-material' },
     { key: KEYS.DIARIAS, listId: 'lista-diarias' },
-    { key: KEYS.FERRAMENTA, listId: 'lista-ferramenta' }
+    { key: KEYS.FERRAMENTA, listId: 'lista-ferramenta' },
+    { key: KEYS.ALIMENTACAO, listId: 'lista-alimentacao' }
   ];
 
   sections.forEach(section => {
@@ -183,19 +203,13 @@ function loadAllSections() {
       popularLista(section.key, listaContainer);
     }
   });
-  // Carrega a seção de alimentação separadamente, pois agora ela está fora do array principal
-  const alimentacaoContainer = $('lista-alimentacao');
-  if (alimentacaoContainer) {
-    popularLista(KEYS.ALIMENTACAO, alimentacaoContainer);
-  }
 
   renderCombustivelSection();
-  renderizarComprovantes(); // NOVO: Renderiza os comprovantes para todas as seções.
+  renderizarComprovantes();
 }
 
 /**
- * NOVO: Função centralizada para recarregar dados da API e atualizar a UI,
- * preservando a aba ativa.
+ * Recarrega os dados da API e atualiza a UI, preservando a aba ativa.
  */
 async function refreshDataAndUI() {
     // 1. Salva a aba ativa
@@ -206,12 +220,7 @@ async function refreshDataAndUI() {
     try {
         // 2. Busca os dados mais recentes
         projectData = await buscarEProcessarProjeto(projectId);
-        if (!projectData) throw new Error("Não foi possível recarregar os dados do projeto.");
-
-        console.group(`[DEBUG RELOAD]`);
-        console.log("[D] Dados recebidos do GET (após recarga):");
-        console.log(JSON.parse(JSON.stringify(projectData.itens)));
-        console.groupEnd();
+        if (!projectData) throw new Error("Falha ao recarregar dados do projeto.");
 
         // 3. Re-renderiza todas as seções
         loadAllSections();
@@ -232,6 +241,12 @@ async function refreshDataAndUI() {
         mostrarLoading(false);
     }
 }
+
+/**
+ * Popula uma lista de itens em uma seção específica.
+ * @param {string} key - A chave da seção.
+ * @param {HTMLElement} listaContainer - O elemento container da lista.
+ */
 function popularLista(key, listaContainer) {
   listaContainer.innerHTML = '';
   const itens = projectData.itens[key] || [];
@@ -241,9 +256,13 @@ function popularLista(key, listaContainer) {
     listaContainer.appendChild(rowElement);
   });
 
-  verificarEstadoVazio(key); // Garante que o estado vazio seja verificado após popular
+  verificarEstadoVazio(key);
 }
 
+/**
+ * Adiciona uma nova linha de item editável a uma seção.
+ * @param {string} key - A chave da seção.
+ */
 function adicionarItem(key) {
   const section = document.querySelector(`.editor-section[data-key="${key}"]`);
   const listaContainer = section ? $(section.dataset.container) : null;
@@ -251,10 +270,7 @@ function adicionarItem(key) {
   if (!listaContainer) return;
 
   // Remove a mensagem de estado vazio, se existir
-  const emptyState = listaContainer.querySelector('.empty-state-message');
-  if (emptyState) {
-    emptyState.remove();
-  }
+  listaContainer.querySelector('.empty-state-message')?.remove();
 
   const newItem = { id: Date.now(), descricao: '', valor: 0 };
   if (key === KEYS.INDICACAO) {
@@ -272,20 +288,22 @@ function adicionarItem(key) {
   }
 }
 
+/**
+ * Cria o elemento HTML para uma linha de item existente (modo de visualização).
+ * @param {object} item - O objeto do item.
+ * @param {string} key - A chave da seção.
+ * @returns {HTMLDivElement} O elemento da linha.
+ */
 function criarLinhaItemExistente(item, key) {
     const row = document.createElement('div');
     row.className = 'item-row';
     row.dataset.itemId = item.id;
 
-    // LÓGICA DE PROPRIEDADE: Verifica se o usuário logado é o dono do item.
-    // Itens sem 'user' (antigos) podem ser editados por qualquer um.
     const isOwner = !item.user || item.user === currentUserUsername;
-
     if (!isOwner) {
         row.classList.add('not-owned');
         row.title = `Item criado por: ${item.user}. Você não pode editá-lo.`;
     }
-
 
     if (key === KEYS.INDICACAO) {
         row.innerHTML = `
@@ -325,7 +343,6 @@ function criarLinhaItemExistente(item, key) {
         });
     }
 
-    // Lógica de confirmação aprimorada para o botão de deletar
     const btnDelete = row.querySelector('.btn-delete');
     btnDelete.addEventListener('click', (e) => {
         e.stopPropagation(); // Impede que o clique se propague e cancele a confirmação imediatamente
@@ -337,7 +354,7 @@ function criarLinhaItemExistente(item, key) {
             // Primeiro clique: arma o botão para confirmação
             const originalHTML = btnDelete.innerHTML;
             btnDelete.classList.add('confirm-delete');
-            btnDelete.innerHTML = '<i class="fas fa-check"></i> Confirmar?'; // Texto explícito
+            btnDelete.innerHTML = '<i class="fas fa-check"></i> Confirmar?';
             
             const revert = () => {
                 btnDelete.classList.remove('confirm-delete');
@@ -353,6 +370,12 @@ function criarLinhaItemExistente(item, key) {
     return row;
 }
 
+/**
+ * Cria um container de linha de item para o modo de edição.
+ * @param {object} item - O objeto do item.
+ * @param {string} key - A chave da seção.
+ * @returns {HTMLDivElement} O elemento da linha.
+ */
 function criarLinhaItemNovo(item, key) {
     const row = document.createElement('div');
     row.className = 'item-row editing';
@@ -360,13 +383,17 @@ function criarLinhaItemNovo(item, key) {
     return row;
 }
 
+/**
+ * Valida um conjunto de campos de input.
+ * @param {Array<object>} validations - Array de objetos de validação.
+ * @returns {boolean} True se todos os campos forem válidos.
+ */
 function validarCampos(validations) {
     let allValid = true;
     for (const { element, type, value } of validations) {
         let isValid = false;
         switch (type) {
-            case 'description': // Validação de descrição
-                // Pelo menos 3 letras, pode conter números, mas não apenas números. Sem caracteres especiais.
+            case 'description':
                 isValid = /[A-Za-zÀ-ÿ]{3,}/.test(value);
                 break;
             case 'numeric': // Validação numérica
@@ -389,6 +416,11 @@ function validarCampos(validations) {
     return allValid;
 }
 
+/**
+ * Configura a validação em tempo real para um conjunto de inputs.
+ * @param {Array<object>} inputs - Array de objetos de validação.
+ * @param {HTMLButtonElement} saveButton - O botão de salvar a ser habilitado/desabilitado.
+ */
 function setupValidation(inputs, saveButton) {
     inputs.forEach(input => {
         input.element.addEventListener('input', () => saveButton.disabled = !validarCampos(inputs));
@@ -396,10 +428,16 @@ function setupValidation(inputs, saveButton) {
 }
 
 function modoEdicao(item, rowElement, opts = {}) {
-    lockInterface(true); // << NOVO: Bloqueia a interface
+    lockInterface(true);
     const key = rowElement.closest('.editor-section').dataset.key;
     rowElement.classList.add('editing');
     
+    const createInput = (type, value, placeholder, style) => {
+        const input = document.createElement('input');
+        Object.assign(input, { type, value, placeholder, className: 'item-input', style });
+        return input;
+    };
+
     const inpDesc = document.createElement('input');
     inpDesc.type = 'text';
     inpDesc.className = 'item-input';
@@ -414,19 +452,18 @@ function modoEdicao(item, rowElement, opts = {}) {
     inpValor.placeholder = 'R$ 0,00';
     inpValor.style.maxWidth = '120px';
 
-    // Adiciona a máscara monetária inteligente
     inpValor.addEventListener('input', () => {
         formatarInputMonetario(inpValor);
-        atualizarTotalDinamico(key); // Atualiza o total da seção em tempo real
+        atualizarTotalDinamico(key);
     });
 
     const btnSave = document.createElement('button');
-    btnSave.className = 'btn-action btn-save success'; // Adicionado 'success' para cor verde
+    btnSave.className = 'btn-action btn-save success';
     btnSave.innerHTML = '<i class="fas fa-save"></i>';
 
     const btnCancel = document.createElement('button');
-    btnCancel.className = 'btn-action btn-cancel-edit danger'; // Adicionado 'danger' para cor vermelha
-    btnCancel.innerHTML = '<i class="fas fa-times"></i>'; // Ícone de fechar/cancelar
+    btnCancel.className = 'btn-action btn-cancel-edit danger';
+    btnCancel.innerHTML = '<i class="fas fa-times"></i>';
     
     btnSave.disabled = true; // Desabilitado por padrão
 
@@ -438,7 +475,6 @@ function modoEdicao(item, rowElement, opts = {}) {
     setupValidation(validations, btnSave);
     setTimeout(() => btnSave.disabled = !validarCampos(validations), 0); // Validação inicial
 
-    // Lógica de confirmação para o botão salvar
     btnSave.addEventListener('click', (e) => {
         e.stopPropagation();
         if (btnSave.classList.contains('confirm-save')) {
@@ -465,9 +501,9 @@ function modoEdicao(item, rowElement, opts = {}) {
     btnCancel.addEventListener('click', () => {
         if (opts.isNew) rowElement.remove();
         else cancelarEdicao(item, rowElement, key);
-        lockInterface(false); // << NOVO: Libera a interface ao cancelar
+        lockInterface(false);
         verificarEstadoVazio(key);
-        atualizarTotalDinamico(key); // NOVO: Reverte o total ao valor original.
+        atualizarTotalDinamico(key);
     });
 
     rowElement.innerHTML = '';
@@ -476,9 +512,8 @@ function modoEdicao(item, rowElement, opts = {}) {
 }
 
 /**
- * NOVO: Atualiza o total de uma seção lendo os valores diretamente do DOM.
- * Isso permite o cálculo em tempo real durante a edição.
- * @param {string} key - A chave da seção (ex: 'material', 'diarias').
+ * Atualiza o total de uma seção em tempo real durante a edição, lendo os valores do DOM.
+ * @param {string} key - A chave da seção.
  */
 function atualizarTotalDinamico(key) {
     const section = document.querySelector(`.editor-section[data-key="${key}"]`);
@@ -491,7 +526,6 @@ function atualizarTotalDinamico(key) {
     const rows = listaContainer.querySelectorAll('.item-row');
 
     rows.forEach(row => {
-        // Seletor ajustado para pegar o campo de valor pelo placeholder ou o campo que não é de descrição.
         const inputValor = row.querySelector('input.item-input[placeholder="R$ 0,00"]');
         const displayValor = row.querySelector('.item-value');
         total += parseCurrency(inputValor ? inputValor.value : (displayValor ? displayValor.textContent : '0'));
@@ -500,8 +534,14 @@ function atualizarTotalDinamico(key) {
     $(`total-${key}`).textContent = formatCurrency(total);
 }
 
+/**
+ * Entra no modo de edição para um item da seção 'Indicação'.
+ * @param {object} item - O objeto do item.
+ * @param {HTMLDivElement} rowElement - O elemento da linha a ser editado.
+ * @param {object} [opts={}] - Opções, como {isNew: boolean}.
+ */
 function modoEdicaoIndicador(item, rowElement, opts = {}) {
-    lockInterface(true); // << NOVO: Bloqueia a interface
+    lockInterface(true);
     const key = KEYS.INDICACAO;
     rowElement.classList.add('editing');
 
@@ -528,7 +568,6 @@ function modoEdicaoIndicador(item, rowElement, opts = {}) {
     inpValor.style.minWidth = '100px';
     inpValor.style.maxWidth = '150px';
 
-    // Adiciona a máscara monetária inteligente
     inpValor.addEventListener('input', () => {
         formatarInputMonetario(inpValor);
         atualizarTotalDinamico(key);
@@ -542,18 +581,17 @@ function modoEdicaoIndicador(item, rowElement, opts = {}) {
     btnCancel.className = 'btn-action btn-cancel-edit danger';
     btnCancel.innerHTML = '<i class="fas fa-times"></i>';
 
-    btnSave.disabled = true; // Desabilitado por padrão
+    btnSave.disabled = true;
 
     const validations = [
         { element: inpNome, type: 'description', get value() { return inpNome.value; } },
-        { element: inpTelefone, type: 'numeric', get value() { return inpTelefone.value.replace(/\D/g,''); } }, // Simplificado
+        { element: inpTelefone, type: 'numeric', get value() { return inpTelefone.value.replace(/\D/g,''); } },
         { element: inpValor, type: 'money', get value() { return parseCurrency(inpValor.value); } }
     ];
 
     setupValidation(validations, btnSave);
-    setTimeout(() => btnSave.disabled = !validarCampos(validations), 0); // Validação inicial
+    setTimeout(() => btnSave.disabled = !validarCampos(validations), 0);
 
-    // Lógica de confirmação para o botão salvar
     btnSave.addEventListener('click', (e) => {
         e.stopPropagation();
         if (btnSave.classList.contains('confirm-save')) {
@@ -579,9 +617,9 @@ function modoEdicaoIndicador(item, rowElement, opts = {}) {
     btnCancel.addEventListener('click', () => {
         if (opts.isNew) rowElement.remove();
         else cancelarEdicao(item, rowElement, key);
-        lockInterface(false); // << NOVO: Libera a interface ao cancelar
+        lockInterface(false);
         verificarEstadoVazio(key);
-        atualizarTotalDinamico(key); // NOVO: Reverte o total ao valor original.
+        atualizarTotalDinamico(key);
     });
 
     rowElement.innerHTML = '';
@@ -589,6 +627,13 @@ function modoEdicaoIndicador(item, rowElement, opts = {}) {
     inpNome.focus();
 }
 
+/**
+ * Salva as alterações de um item (novo ou existente) na API.
+ * @param {string} key - A chave da seção.
+ * @param {number} itemId - O ID do item.
+ * @param {object} data - Os novos dados do item.
+ * @param {HTMLDivElement} rowElement - O elemento da linha.
+ */
 async function salvarItem(key, itemId, data, rowElement) {
     mostrarLoading(true);
 
@@ -604,21 +649,15 @@ async function salvarItem(key, itemId, data, rowElement) {
         projectData.itens[key].push(item);
     }
 
-    // Determina qual campo da API deve ser atualizado
     const localKeyName = Object.keys(KEYS).find(k => KEYS[k] === key);
-    if (!localKeyName) return; // Chave local não encontrada, não fazer nada.
+    if (!localKeyName) return;
 
-    // Salva o campo atualizado na API e recarrega os dados do projeto
     try {
-        // Lógica unificada para todas as abas.
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
         const textoParaApi = projectData.itens[key].map(i => {
-            // A aba de indicação tem um formato de texto diferente.
             if (key === KEYS.INDICACAO) {
-                // CORREÇÃO: Usa o 'user' existente do item, ou o usuário atual se for um item novo.
                 return `${i.user || currentUserUsername} | ${i.id === itemId ? today : i.date} | ${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
             }
-            // CORREÇÃO: Usa o 'user' existente do item, ou o usuário atual se for um item novo.
             return `${i.user || currentUserUsername} | ${i.id === itemId ? today : i.date} | ${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
         }).join('\n');
 
@@ -636,34 +675,42 @@ async function salvarItem(key, itemId, data, rowElement) {
         alert("Ocorreu um erro ao salvar. Tente novamente.");
     }
 
-    // Atualiza toda a UI com os dados mais recentes, mantendo a aba ativa.
     await refreshDataAndUI();
 }
 
+/**
+ * Cancela o modo de edição de um item, revertendo para o modo de visualização.
+ * @param {object} item - O objeto original do item.
+ * @param {HTMLDivElement} rowElement - O elemento da linha.
+ * @param {string} key - A chave da seção.
+ */
 function cancelarEdicao(item, rowElement, key) {
     rowElement.classList.remove('editing');
     const originalRow = criarLinhaItemExistente(item, key);
     rowElement.replaceWith(originalRow);
 }
 
+/**
+ * Remove um item da lista e atualiza a API.
+ * @param {string} key - A chave da seção.
+ * @param {number} itemId - O ID do item a ser removido.
+ */
 async function removerItem(key, itemId) {
     if (!projectData.itens[key]) return;
 
     projectData.itens[key] = projectData.itens[key].filter(i => i.id !== itemId);
 
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
     const textoParaApi = projectData.itens[key].map(i => {
         if (key === KEYS.INDICACAO) {
-            // CORREÇÃO: Usa o 'user' existente do item para preservar a propriedade.
             return `${i.user || currentUserUsername} | ${i.date || today} | ${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
         } else {
-            // CORREÇÃO: Usa o 'user' existente do item para preservar a propriedade.
             return `${i.user || currentUserUsername} | ${i.date || today} | ${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
         }
     }).join('\n');
 
     const localKeyName = Object.keys(KEYS).find(k => KEYS[k] === key);
-    if (!localKeyName) return; // Chave local não encontrada, não fazer nada.
+    if (!localKeyName) return;
 
     const fieldKey = API_KEYS[localKeyName.toUpperCase()];
 
@@ -671,7 +718,6 @@ async function removerItem(key, itemId) {
         mostrarLoading(true);
         await atualizarCampoUnico(projectId, fieldKey, textoParaApi, projectData.fieldIds);
 
-        // CORREÇÃO: Calcula e salva o campo de TOTAL correspondente após a remoção
         const somaBruta = projectData.itens[key].reduce((acc, item) => acc + (item.valor || 0), 0);
         const total = arredondarParaDuasCasas(somaBruta);
         const totalFieldKey = API_KEYS[`TOTAL_${localKeyName.toUpperCase()}`];
@@ -682,11 +728,14 @@ async function removerItem(key, itemId) {
         console.error("Falha ao remover item:", error);
         alert("Ocorreu um erro ao remover o item. Tente novamente.");
     } finally {
-        // Atualiza toda a UI com os dados mais recentes, mantendo a aba ativa.
         await refreshDataAndUI();
     }
 }
 
+/**
+ * Verifica se uma lista de itens está vazia e exibe uma mensagem apropriada.
+ * @param {string} key - A chave da seção.
+ */
 function verificarEstadoVazio(key) {
     const section = document.querySelector(`.editor-section[data-key="${key}"]`);
     const listaContainer = $(section.dataset.container);
@@ -701,6 +750,10 @@ function verificarEstadoVazio(key) {
     }
 }
 
+/**
+ * Atualiza o valor total exibido para uma seção.
+ * @param {string} key - A chave da seção.
+ */
 function atualizarTotal(key) {
   const itens = projectData.itens[key] || [];
   const total = itens.reduce((acc, item) => acc + (item.valor || 0), 0);
@@ -710,13 +763,12 @@ function atualizarTotal(key) {
   }
 }
 
-function lockInterface(lock = true) {
-    document.body.classList.toggle('is-locked-for-editing', lock);
-}
-
+/**
+ * Renderiza a seção de combustível, separando os itens de 'Venda' e 'Instalação'.
+ */
 function renderCombustivelSection() {
     const container = $('sec-combustivel');
-    // CORREÇÃO: Remove apenas os grupos de combustível antigos, preservando o container de anexos.
+    // Remove apenas os grupos de combustível antigos, preservando o container de anexos.
     container.querySelectorAll('.fuel-group').forEach(group => group.remove());
 
     const vendaSection = document.createElement('section');
@@ -727,7 +779,6 @@ function renderCombustivelSection() {
     instalacaoSection.className = 'fuel-group';
     instalacaoSection.id = 'fuel-instalacao';
 
-    // Insere os novos grupos de combustível no início do container da aba.
     const summaryContainer = container.querySelector('.section-summary');
     container.insertBefore(vendaSection, summaryContainer);
     container.insertBefore(instalacaoSection, summaryContainer);
@@ -738,6 +789,10 @@ function renderCombustivelSection() {
     renderFuelGroup(instalacaoSection, 'instalacao', instalacaoItem);
 }
 
+/**
+ * Extrai os itens de combustível de 'Venda' e 'Instalação' dos dados do projeto.
+ * @returns {{vendaItem: object | null, instalacaoItem: object | null}}
+ */
 function getCombustivelItens() {
     const itens = (projectData.itens.combustivel || []).map(item => {
         if (typeof item === 'string') return parseLinhaParaItem(item);
@@ -749,13 +804,19 @@ function getCombustivelItens() {
     return { vendaItem, instalacaoItem };
 }
 
+/**
+ * Renderiza um grupo específico de combustível (Venda ou Instalação).
+ * @param {HTMLElement} section - O elemento container da seção.
+ * @param {'venda' | 'instalacao'} type - O tipo de combustível.
+ * @param {object | null} item - O objeto do item de combustível.
+ */
 function renderFuelGroup(section, type, item) {
     section.innerHTML = `<h4>Combustível — ${type === 'venda' ? 'Venda' : 'Instalação'}</h4>`;
 
     if (!item) {
         section.innerHTML += `<div class="empty-state-message">Nenhum item cadastrado.</div>`;
         const btnAdd = document.createElement('button');
-        btnAdd.className = 'btn-action btn-add-fuel-item'; // Classe específica para evitar conflito
+        btnAdd.className = 'btn-action btn-add-fuel-item';
         btnAdd.title = 'Adicionar item de combustível';
         btnAdd.innerHTML = '<i class="fas fa-plus"></i>';
         btnAdd.onclick = () => modoEdicaoCombustivel(section, type, null);
@@ -763,16 +824,12 @@ function renderFuelGroup(section, type, item) {
         return;
     }
 
-    // LÓGICA DE PROPRIEDADE: Verifica se o usuário logado é o dono do item.
     const isOwner = !item.user || item.user === currentUserUsername;
-
     if (!isOwner) {
-        // Adiciona a classe ao grupo de combustível para feedback visual
         section.classList.add('not-owned');
         section.title = `Item criado por: ${item.user}. Você não pode editá-lo.`;
     }
 
-    // CORREÇÃO: Cria uma estrutura de linha de item consistente com as outras abas.
     const row = document.createElement('div');
     row.className = 'item-row';
     if (!isOwner) {
@@ -790,7 +847,7 @@ function renderFuelGroup(section, type, item) {
                 <span>Preço/L: <strong>${formatCurrency(item.valorLitro)}</strong></span>
             </div>
         `;
-    } else { // instalacao
+    } else {
         custo = item.litros * item.valorLitro;
         detailsHTML = `
             <div class="item-details-breakdown">
@@ -815,7 +872,7 @@ function renderFuelGroup(section, type, item) {
     btnEdit.className = 'btn-action btn-edit';
     btnEdit.title = isOwner ? 'Editar item de combustível' : `Criado por ${item.user}`;
     btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
-    btnEdit.disabled = !isOwner; // Desabilita o botão se não for o dono
+    btnEdit.disabled = !isOwner;
     if (isOwner) {
         btnEdit.onclick = () => modoEdicaoCombustivel(section, type, item);
     }
@@ -824,7 +881,7 @@ function renderFuelGroup(section, type, item) {
     btnDelete.className = 'btn-action btn-delete';
     btnDelete.title = isOwner ? 'Remover item de combustível' : `Criado por ${item.user}`;
     btnDelete.innerHTML = '<i class="fas fa-trash-alt"></i>';
-    btnDelete.disabled = !isOwner; // Desabilita o botão se não for o dono
+    btnDelete.disabled = !isOwner;
     btnDelete.addEventListener('click', (e) => {
         e.stopPropagation();
         if (btnDelete.classList.contains('confirm-delete')) {
@@ -848,9 +905,15 @@ function renderFuelGroup(section, type, item) {
     section.appendChild(row);
 }
 
+/**
+ * Entra no modo de edição para um item de combustível.
+ * @param {HTMLElement} section - O elemento container da seção.
+ * @param {'venda' | 'instalacao'} type - O tipo de combustível.
+ * @param {object | null} item - O objeto do item de combustível.
+ */
 function modoEdicaoCombustivel(section, type, item) {
     lockInterface(true);
-    section.classList.add('editing'); // << NOVO: Adiciona a classe de edição ao grupo
+    section.classList.add('editing');
     section.innerHTML = `<h4>Combustível — ${type === 'venda' ? 'Venda' : 'Instalação'}</h4>`;
 
     const content = document.createElement('div');
@@ -930,14 +993,13 @@ function modoEdicaoCombustivel(section, type, item) {
         }
         totalEl.textContent = formatCurrency(total || 0);
 
-        // NOVO: Atualiza o total geral da aba de combustível em tempo real.
         const { vendaItem: vItem, instalacaoItem: iItem } = getCombustivelItens();
         let custoVenda = 0;
         let custoInstalacao = 0;
 
         if (type === 'venda') {
-            custoVenda = total || 0; // Usa o valor que está sendo calculado em tempo real
-            custoInstalacao = iItem ? iItem.litros * iItem.valorLitro : 0; // Pega o valor do outro item
+            custoVenda = total || 0;
+            custoInstalacao = iItem ? iItem.litros * iItem.valorLitro : 0;
         } else {
             custoInstalacao = total || 0; // Usa o valor que está sendo calculado em tempo real
             custoVenda = vItem ? (vItem.distancia * 2 / CONSUMO_FIXO) * vItem.valorLitro : 0; // Pega o valor do outro item
@@ -952,12 +1014,11 @@ function modoEdicaoCombustivel(section, type, item) {
 
     btnCancel.addEventListener('click', () => {
         lockInterface(false);
-        section.classList.remove('editing'); // << NOVO: Remove a classe ao cancelar
+        section.classList.remove('editing');
         renderFuelGroup(section, type, item);
-        atualizarTotalCombustivel(); // NOVO: Garante que o total da aba seja revertido.
+        atualizarTotalCombustivel();
     });
 
-    // Lógica de confirmação aprimorada para o botão salvar de combustível
     btnSave.addEventListener('click', (e) => {
         e.stopPropagation();
 
@@ -974,10 +1035,10 @@ function modoEdicaoCombustivel(section, type, item) {
 
             const { vendaItem, instalacaoItem } = getCombustivelItens();
             const otherItem = type === 'venda' ? instalacaoItem : vendaItem;
-            const newCombustivelItens = [{...newItemData, user: currentUserUsername}]; // Adiciona o usuário
+            const newCombustivelItens = [{...newItemData, user: currentUserUsername}];
             if (otherItem) newCombustivelItens.push(otherItem);
             
-            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const today = new Date().toISOString().split('T')[0];
             const textoParaApi = newCombustivelItens.map(item => {
                 if (item.finalidade === 'Venda') return `${item.user} | ${item.date || today} | ${item.finalidade} | ${item.descricao} | ${item.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR((item.distancia * 2 / CONSUMO_FIXO) * item.valorLitro)}`;
                 return `${item.user} | ${item.date || today} | ${item.finalidade} | ${item.descricao} | ${item.litros} | 0 | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR(item.litros * item.valorLitro)}`;
@@ -1002,14 +1063,16 @@ function modoEdicaoCombustivel(section, type, item) {
     });
 }
 
+/**
+ * Salva os dados de combustível (texto e total) na API.
+ * @param {string} textoParaApi - A string formatada com todos os itens de combustível.
+ * @param {Array<object>} newCombustivelItens - A lista de objetos de itens de combustível.
+ */
 async function salvarDadosCombustivel(textoParaApi, newCombustivelItens) {
         mostrarLoading(true);
         try {
-            // 1. Salva o campo de texto com a lista de itens
             await atualizarCampoUnico(projectId, API_KEYS.COMBUSTIVEL, textoParaApi, projectData.fieldIds);
 
-            // 2. CORREÇÃO: Calcula o novo total de combustível a partir dos itens que acabaram de ser formatados,
-            // em vez de usar os dados antigos de `projectData`.
             const novoCustoVenda = newCombustivelItens.find(i => i.finalidade === 'Venda');
             const novoCustoInstalacao = newCombustivelItens.find(i => i.finalidade === 'Instalação');
 
@@ -1019,37 +1082,39 @@ async function salvarDadosCombustivel(textoParaApi, newCombustivelItens) {
 
             await atualizarCampoUnico(projectId, API_KEYS.TOTAL_COMBUSTIVEL, totalCombustivel.toString(), projectData.fieldIds);
 
-            // 3. Atualiza a UI com os dados mais recentes.
             await refreshDataAndUI();
-
-            // 4. CORREÇÃO: Desbloqueia a interface após a conclusão.
             lockInterface(false);
 
         } finally {
             mostrarLoading(false);
         }
 }
+
+/**
+ * Remove um item de combustível (Venda ou Instalação) e atualiza a API.
+ * @param {'venda' | 'instalacao'} typeToRemove - O tipo de item a ser removido.
+ */
 async function removerItemCombustivel(typeToRemove) {
     const { vendaItem, instalacaoItem } = getCombustivelItens();
     const remainingItem = typeToRemove === 'venda' ? instalacaoItem : vendaItem;
 
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
     const textoParaApi = remainingItem ? 
         (remainingItem.finalidade === 'Venda' ? 
             `${remainingItem.user} | ${remainingItem.date || today} | ${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR((remainingItem.distancia * 2 / CONSUMO_FIXO) * remainingItem.valorLitro)}` :
             `${remainingItem.user} | ${remainingItem.date || today} | ${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.litros} | 0 | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR(remainingItem.litros * remainingItem.valorLitro)}`)
         : '';
 
-    // Passa a lista de itens restantes (que pode ser vazia) para a função de salvar.
     const newCombustivelItens = remainingItem ? [remainingItem] : [];
     await salvarDadosCombustivel(textoParaApi, newCombustivelItens);
 }
 
+/**
+ * Função de inicialização principal da página do editor.
+ */
 async function init() {
   const params = new URLSearchParams(window.location.search);
   projectId = params.get('projectId');
-
-  overlay = $('loading-overlay'); // Inicializa a variável do overlay
   mostrarLoading(true);
 
   if (!projectId) {
@@ -1058,7 +1123,6 @@ async function init() {
     return;
   }
   
-  // NOVO: Busca os dados do usuário logado
   try {
     const userData = await getMe();
     if (userData.sucesso && userData.user.email) {
@@ -1086,34 +1150,30 @@ async function init() {
     mostrarLoading(false);
   }
 
-  // 1. Cria o HTML das abas e seções
   const uiInitialized = initializeEditorUI();
-
   if (!uiInitialized) {
     console.error("UI não inicializada, abortando carregamento.");
-    return; // Interrompe a execução aqui!
+    return;
   }
-  Object.values(KEYS).forEach(key => {
-      atualizarTotal(key);
-  });
-  atualizarTotalCombustivel(); // Garante que o total de combustível também seja calculado.
 
-  const editorContainer = $('editor-container');
-  if (editorContainer) {
-    editorContainer.classList.remove('oculto');
-  }
+  loadAllSections();
+  setupEventListeners();
+
+  Object.values(KEYS).forEach(atualizarTotal);
+  atualizarTotalCombustivel();
+
+  $('editor-container')?.classList.remove('oculto');
   
-  // Popula o título e o novo subtítulo com os dados do projeto
   $('editor-title').textContent = 'Custos';
   $('editor-subtitle').textContent = `#${projectData.id} - ${projectData.nomeCliente}`;
 
-  // Ativa a primeira aba por padrão
-  document.querySelector('.tab-link[data-tab="sec-despesas-projeto"]').classList.add('active'); // Ativa a primeira aba
-  document.querySelector('#sec-despesas-projeto').classList.add('active'); // Mostra o conteúdo da primeira aba
+  // Ativa a primeira aba
+  document.querySelector('.tab-link')?.classList.add('active');
+  document.querySelector('.editor-section')?.classList.add('active');
 }
 
 /**
- * NOVO: Função específica para calcular e atualizar o total da aba de combustível.
+ * Calcula e atualiza o total da aba de combustível.
  */
 function atualizarTotalCombustivel() {
     const { vendaItem, instalacaoItem } = getCombustivelItens();

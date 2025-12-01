@@ -1,217 +1,133 @@
-// js/controller.js — VERSÃO REESTRUTURADA MODAL PROFISSIONAL
-// Dependências: model.js, utils.js
-
 import {
   buscarEProcessarProjeto,
-  processarEGerarPayload,
   atualizarMultiplosCampos,
-  prepararPayloadEdicao,
   KEYS
 } from './model.js';
 
 import { formatarMoeda, formatarData, parseLinhaParaItem, formatCombustivelParaLinha } from './utils.js';
 
-// -------------------------
-// DOM helpers
-// -------------------------
+/**
+ * Atalho para document.getElementById.
+ * @param {string} id O ID do elemento.
+ * @returns {HTMLElement | null}
+ */
 const $ = (id) => document.getElementById(id);
 
-// Form e Inputs
+// --- Seletores do DOM ---
 const formBuscar = $('form-adicionar-projeto');
 const inputIdProjeto = $('id-novo-projeto');
 const overlay = $('loading-overlay');
 
-// Seções de exibição
 const boxInfoProjeto = $('project-info');
 const sectionKPIs = $('kpi-principais');
 const sectionOverview = $('project-overview');
 
-// Dados principais
-const infoId = $('info-id');
-const infoCliente = $('info-cliente');
-const infoData = $('info-data');
-const infoStatus = $('info-status');
-
-// KPIs
-const kpiTotalProjeto = $('val-total-projeto');
-const kpiKit = $('val-kit');
-const kpiCustos = $('val-custos');
-const kpiLucro = $('val-lucro');
-
-// Overview
-const ovId = $('overview-id');
-const ovClient = $('overview-client');
-const ovDate = $('overview-date');
-const ovBreakMaterial = $('break-material');
-const ovBreakDiarias = $('break-diarias');
-const ovBreakComb = $('break-combustivel');
-const ovBreakOutras = $('break-outras');
-const ovValorProposta = $('overview-valor-proposta');
-const ovMargem = $('overview-margem');
-
-// Modal & editor
 const modal = $('modal-edicao');
 const btnAbrirModal = $('btn-open-editor');
 const modalProjetoId = $('modal-projeto-id');
 
-// Containers de itens
 const listaMaterial = $('lista-material');
 const listaDiarias = $('lista-diarias');
 const listaDespProjeto = $('lista-despesas-projeto');
 const listaDespFixas = $('lista-despesas-fixas-gerais');
 const listaFerramenta = $('lista-ferramenta');
 
-// Inputs específicos
 const inputAlimentacao = $('input-alimentacao');
 const inputQuilometragem = $('input-quilometragem');
 const inputCombustivel = $('input-combustivel');
 const inputValorProjetoHidden = $('input-valor-projeto');
 const inputValorKitHidden = $('input-kit-fotovoltaico');
 
+// --- Estado da Aplicação ---
 let projetoAtual = null;
 
-// -------------------------
-// Utilitários
-// -------------------------
-function log(...args) { console.log('[CONTROLLER]', ...args); }
-function warn(...args) { console.warn('[CONTROLLER]', ...args); }
-function error(...args) { console.error('[CONTROLLER]', ...args); }
-
+/**
+ * Exibe ou oculta a tela de carregamento.
+ * @param {boolean} [mostrar=true] - True para exibir, false para ocultar.
+ */
 function mostrarLoading(sim = true) {
   overlay?.classList.toggle('oculto', !sim);
 }
 
-function formatar(v) {
-  try { return formatarMoeda(Number(v) || 0); } catch { return String(v ?? '0,00'); }
-}
-
-function formatarDataLocal(d) {
-  try { return formatarData(d); } catch { return new Date(d).toLocaleDateString('pt-BR'); }
-}
-
+/**
+ * Abre o modal de edição.
+ */
 function abrirModal() { modal && (modal.style.display = 'flex'); }
+
+/**
+ * Fecha o modal de edição (exposto globalmente para o botão no HTML).
+ */
 window.fecharModal = () => { modal && (modal.style.display = 'none'); };
 
-// -------------------------
-// Parsing e criação de itens
-// -------------------------
-function parseLinhaFormatada(linha) {
-  if (!linha || !linha.includes('|')) return null;
-  const [desc, val] = linha.split('|').map(s => s.trim());
-  const valorNum = Number(val.replace(',', '.')) || 0;
-  return { descricao: desc, valor: valorNum };
-}
-
-function criarLinhaItem(descricao = '', valor = '', opts = {}) {
+/**
+ * Cria um elemento de linha de item editável para o modal.
+ * @param {string} [descricao=''] - A descrição inicial do item.
+ * @param {number | string} [valor=''] - O valor inicial do item.
+ * @returns {HTMLDivElement} O elemento da linha.
+ */
+function criarLinhaItem(descricao = '', valor = '') {
   const row = document.createElement('div');
   row.className = 'item-row';
-  row.style = 'display:flex; gap:8px; align-items:center; margin-bottom:6px;';
 
   const inpDesc = document.createElement('input');
   inpDesc.type = 'text';
   inpDesc.className = 'input-descricao';
-  inpDesc.placeholder = opts.placeholderDesc || 'Descrição';
+  inpDesc.placeholder = 'Descrição';
   inpDesc.value = descricao;
 
   const inpVal = document.createElement('input');
   inpVal.type = 'number';
   inpVal.step = '0.01';
   inpVal.className = 'input-valor';
-  inpVal.placeholder = opts.placeholderVal || '0.00';
+  inpVal.placeholder = '0.00';
   inpVal.value = (valor !== undefined && valor !== null) ? Number(valor).toFixed(2) : '';
 
   row.append(inpDesc, inpVal);
-
-  if (opts.withFile) {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.className = 'input-file';
-    fileInput.multiple = !!opts.multiple;
-    row.appendChild(fileInput);
-  }
 
   const btnRem = document.createElement('button');
   btnRem.type = 'button';
   btnRem.className = 'btn-remover';
   btnRem.title = 'Remover item';
   btnRem.innerHTML = '✖';
-  btnRem.onclick = () => { row.remove(); atualizarSomaModal(); };
+  btnRem.onclick = () => row.remove();
   row.appendChild(btnRem);
 
   return row;
 }
 
-function criarLinhaItemExistente(item) {
-  const row = document.createElement('div');
-  row.className = 'item-row existente';
-  row.style = 'display:flex; gap:8px; align-items:center; margin-bottom:6px;';
-
-  const spanDesc = document.createElement('span');
-  spanDesc.textContent = item.descricao || '';
-  spanDesc.style.flex = '2';
-
-  const spanVal = document.createElement('span');
-  spanVal.textContent = (item.valor ?? 0).toFixed(2);
-  spanVal.style.flex = '1';
-  spanVal.style.textAlign = 'right';
-
-  const btnEdit = document.createElement('button');
-  btnEdit.type = 'button';
-  btnEdit.textContent = '✎';
-  btnEdit.title = 'Editar item';
-  btnEdit.onclick = () => {
-    row.innerHTML = '';
-    const editableRow = criarLinhaItem(item.descricao, item.valor, { withFile: true });
-    row.replaceWith(editableRow);
-  };
-
-  row.append(spanDesc, spanVal, btnEdit);
-  return row;
-}
-
-function limparContainer(container) { if (container) container.innerHTML = ''; }
-
-function popularListaComItens(container, itens = [], opts = {}) {
+/**
+ * Popula um container no modal com itens existentes.
+ * @param {HTMLElement} container - O elemento container da lista.
+ * @param {Array<object>} [itens=[]] - A lista de itens a serem exibidos.
+ */
+function popularListaComItens(container, itens = []) {
   if (!container) return;
-  limparContainer(container);
-  if (!itens.length) container.appendChild(criarLinhaItem('', '', opts));
-  else itens.forEach(it => container.appendChild(criarLinhaItemExistente(it)));
+  container.innerHTML = '';
+  if (!itens.length) {
+    container.appendChild(criarLinhaItem());
+  } else {
+    itens.forEach(item => container.appendChild(criarLinhaItem(item.descricao, item.valor)));
+  }
 }
 
-function atualizarSomaModal() {
-  const soma = (container) => {
-    if (!container) return 0;
-    let s = 0;
-    container.querySelectorAll('.item-row').forEach(r => {
-      const v = parseFloat(r.querySelector('.input-valor')?.value) || 0;
-      s += v;
-    });
-    return s;
-  };
-  log('Somas (modal): mat', soma(listaMaterial), 'diarias', soma(listaDiarias), 'despProjeto', soma(listaDespProjeto), 'despFixas', soma(listaDespFixas), 'ferr', soma(listaFerramenta));
-}
-
-// -------------------------
-// Coleta itens do modal / input
-// -------------------------
+/**
+ * Coleta os dados dos itens de um container no modal.
+ * @param {HTMLElement} container - O elemento container da lista.
+ * @returns {Array<{descricao: string, valor: number}>}
+ */
 function coletarItensDoContainer(container) {
   if (!container) return [];
   return Array.from(container.querySelectorAll('.item-row')).map(row => {
     const descricao = row.querySelector('.input-descricao')?.value.trim() || '';
     const valor = parseFloat(row.querySelector('.input-valor')?.value) || 0;
-    const arquivos = Array.from(row.querySelectorAll('.input-file')).flatMap(inp => inp.files ? Array.from(inp.files) : []);
-    return { descricao, valor, arquivos };
-  });
+    return { descricao, valor };
+  }).filter(item => item.descricao || item.valor > 0);
 }
 
-function coletarItensCombustivelDoInput(input) {
-  if (!input) return [];
-  return input.value.split('\n').map(parseLinhaParaItem).filter(Boolean);
-}
-
-// -------------------------
-// SALVAR alterações
-// -------------------------
+/**
+ * Manipula o envio do formulário de edição do modal.
+ * @param {Event} e - O evento de submit.
+ */
 window.lidarComEnvioEdicao = async function(e) {
   e?.preventDefault();
   if (!projetoAtual) return alert('Carregue um projeto primeiro.');
@@ -219,107 +135,138 @@ window.lidarComEnvioEdicao = async function(e) {
   try {
     mostrarLoading(true);
 
-    const combustivelItens = coletarItensCombustivelDoInput(inputQuilometragem);
-    const totalCombustivel = combustivelItens.reduce((s,i)=>s+(i.valor||0),0);
-
-    const entrada = {
-      material: coletarItensDoContainer(listaMaterial).map(i => ({ descricao: i.descricao, valor: i.valor })),
-      diarias: coletarItensDoContainer(listaDiarias).map(i => ({ descricao: i.descricao, valor: i.valor })),
-      despProjeto: coletarItensDoContainer(listaDespProjeto).map(i => ({ descricao: i.descricao, valor: i.valor })),
-      despFixasGerais: coletarItensDoContainer(listaDespFixas).map(i => ({ descricao: i.descricao, valor: i.valor })),
-      ferramenta: coletarItensDoContainer(listaFerramenta).map(i => ({ descricao: i.descricao, valor: i.valor })),
-      totalAlimentacao: Number(inputAlimentacao?.value || 0),
-      combustivelItens,
-      totalCombustivel,
-      quilometragem: inputQuilometragem?.value || '',
-      valorProjeto: Number(inputValorProjetoHidden?.value || 0),
-      valorKit: Number(inputValorKitHidden?.value || 0),
-      valorIndicacao: 0
+    const payload = {
+      material: coletarItensDoContainer(listaMaterial),
+      diarias: coletarItensDoContainer(listaDiarias),
+      despProjeto: coletarItensDoContainer(listaDespProjeto),
+      despFixasGerais: coletarItensDoContainer(listaDespFixas),
+      ferramenta: coletarItensDoContainer(listaFerramenta),
+      combustivelTexto: inputQuilometragem?.value || '',
+      // Adicionar outros campos se necessário
     };
 
-    const dadosProcessados = processarEGerarPayload(entrada);
-    const resposta = await atualizarMultiplosCampos(projetoAtual.id ?? projetoAtual.identifier, dadosProcessados, projetoAtual.fieldIds ?? projetoAtual.fieldIds);
+    const resposta = await atualizarMultiplosCampos(projetoAtual.id, payload, projetoAtual.fieldIds);
 
-    if (!resposta?.sucesso) return alert('Erro ao salvar alterações. Veja console.'), error('Falha ao atualizar campos:', resposta);
+    if (!resposta?.sucesso) {
+      alert('Erro ao salvar alterações. Veja console.');
+      console.error('Falha ao atualizar campos:', resposta);
+      return;
+    }
 
-    log('Salvo com sucesso (dados numéricos/texto). Arquivos ficaram para upload manual/worker.');
+    alert('Alterações salvas com sucesso!');
     fecharModal();
-    await buscarProjeto(projetoAtual.id ?? projetoAtual.identifier);
+    await buscarProjeto(projetoAtual.id);
 
   } catch (err) {
-    error('Erro ao salvar edição:', err);
+    console.error('Erro ao salvar edição:', err);
     alert('Erro ao salvar alterações. Veja console.');
   } finally {
     mostrarLoading(false);
   }
 };
 
-// -------------------------
-// BUSCAR projeto
-// -------------------------
+/**
+ * Busca e renderiza os dados de um projeto na página.
+ * @param {string | number} id - O ID do projeto a ser buscado.
+ */
 async function buscarProjeto(id) {
   if (!id) return;
   try {
     mostrarLoading(true);
-    log('Buscando projeto', id);
-
     const dados = await buscarEProcessarProjeto(id);
-    mostrarLoading(false);
-
-    if (!dados) return alert(`Projeto #${id} não encontrado. Veja console.`);
-
+    if (!dados) {
+      alert(`Projeto #${id} não encontrado. Veja console.`);
+      return;
+    }
     projetoAtual = dados;
 
-    // preencher exibição
-    preencherDadosProjeto(dados);
-    preencherKPIs(dados);
-    preencherOverview(dados);
-
-    // Popular modal com itens já formatados do Solar Market
-    const itens = dados.itens || {};
-    const parseJsonItens = (rawItens) => rawItens.map(i => parseLinhaFormatada(i.value)).filter(Boolean);
-
-    popularListaComItens(listaMaterial, parseJsonItens(itens.material || []), { withFile: true, multiple: true });
-    popularListaComItens(listaDiarias, parseJsonItens(itens.diarias || []), { withFile: false });
-    popularListaComItens(listaDespProjeto, parseJsonItens(itens.despProjeto || []), { withFile: true });
-    popularListaComItens(listaDespFixas, parseJsonItens(itens.despFixasGerais || []), { withFile: true });
-    popularListaComItens(listaFerramenta, parseJsonItens(itens.ferramenta || []), { withFile: true });
-
-    inputAlimentacao && (inputAlimentacao.value = Number(dados.rawFields?.[KEYS.CUSTO_ALIMENTACAO] ?? dados.totais?.diarias_mo ?? 0));
-    inputCombustivel && (inputCombustivel.value = Number(dados.rawFields?.[KEYS.CUSTO_COMBUSTIVEL] ?? dados.totais?.combustivel ?? 0));
-    if (inputQuilometragem) inputQuilometragem.value = (dados.itens?.combustivel || []).map(formatCombustivelParaLinha).join('\n');
-
-    inputValorProjetoHidden && (inputValorProjetoHidden.value = Number(dados.rawFields?.[KEYS.VALOR_TOTAL_PROJETO] ?? dados.valorProposta ?? 0));
-    inputValorKitHidden && (inputValorKitHidden.value = Number(dados.rawFields?.[KEYS.VALOR_KIT_FOTOVOLTAICO] ?? 0));
-
-    boxInfoProjeto?.classList.remove('oculto');
-    sectionKPIs?.classList.remove('oculto');
-    sectionOverview?.classList.remove('oculto');
-
-    log(`Projeto #${id} carregado e renderizado.`);
+    renderizarPagina(dados);
+    popularModal(dados);
 
   } catch (err) {
-    mostrarLoading(false);
-    error('Erro ao buscar projeto:', err);
+    console.error('Erro ao buscar projeto:', err);
     alert('Erro ao buscar projeto. Veja console.');
+  } finally {
+    mostrarLoading(false);
   }
 }
 
-// -------------------------
-// Eventos
-// -------------------------
-formBuscar?.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const id = parseInt(inputIdProjeto?.value, 10);
-  if (!id || isNaN(id)) return alert('Informe um ID válido.');
-  buscarProjeto(id);
-});
+/**
+ * Preenche a página principal com os dados do projeto.
+ * @param {object} dados - O objeto do projeto.
+ */
+function renderizarPagina(dados) {
+  // Preenche informações básicas
+  $('info-id').textContent = `#${dados.id}`;
+  $('info-cliente').textContent = dados.nomeCliente;
+  $('info-data').textContent = formatarData(dados.dataCriacao);
+  $('info-status').textContent = dados.status;
 
-btnAbrirModal?.addEventListener('click', () => {
-  if (!projetoAtual) return alert('Carregue um projeto antes de editar.');
-  modalProjetoId.textContent = projetoAtual.id ?? projetoAtual.identifier ?? '';
-  abrirModal();
-  atualizarSomaModal();
-});
+  // Preenche KPIs
+  $('val-total-projeto').textContent = formatarMoeda(dados.valorProposta);
+  $('val-kit').textContent = formatarMoeda(dados.valorKit);
+  $('val-custos').textContent = formatarMoeda(dados.totais.totalGeral);
+  const lucro = dados.valorProposta - dados.valorKit - dados.totais.totalGeral;
+  $('val-lucro').textContent = formatarMoeda(lucro);
 
-log('Controller (versão refatorada com modal profissional e itens existentes) carregado.');
+  // Preenche Overview
+  $('overview-id').textContent = `#${dados.id}`;
+  $('overview-client').textContent = dados.nomeCliente;
+  $('overview-date').textContent = formatarData(dados.dataCriacao);
+  $('break-material').textContent = formatarMoeda(dados.totais.material);
+  $('break-diarias').textContent = formatarMoeda(dados.totais.diarias);
+  $('break-combustivel').textContent = formatarMoeda(dados.totais.combustivel);
+  $('break-outras').textContent = formatarMoeda(dados.totais.outras);
+  $('overview-valor-proposta').textContent = formatarMoeda(dados.valorProposta);
+  const margem = dados.valorProposta > 0 ? (lucro / dados.valorProposta) * 100 : 0;
+  $('overview-margem').textContent = `${margem.toFixed(2)}%`;
+
+  // Exibe as seções
+  boxInfoProjeto?.classList.remove('oculto');
+  sectionKPIs?.classList.remove('oculto');
+  sectionOverview?.classList.remove('oculto');
+}
+
+/**
+ * Popula o modal de edição com os dados do projeto.
+ * @param {object} dados - O objeto do projeto.
+ */
+function popularModal(dados) {
+  const { itens, totais, rawFields, valorProposta, valorKit } = dados;
+
+  popularListaComItens(listaMaterial, itens.material);
+  popularListaComItens(listaDiarias, itens.diarias);
+  popularListaComItens(listaDespProjeto, itens.despProjeto);
+  popularListaComItens(listaDespFixas, itens.despFixasGerais);
+  popularListaComItens(listaFerramenta, itens.ferramenta);
+
+  if (inputAlimentacao) inputAlimentacao.value = totais.alimentacao || 0;
+  if (inputCombustivel) inputCombustivel.value = totais.combustivel || 0;
+  if (inputQuilometragem) inputQuilometragem.value = (itens.combustivel || []).map(formatCombustivelParaLinha).join('\n');
+
+  if (inputValorProjetoHidden) inputValorProjetoHidden.value = valorProposta;
+  if (inputValorKitHidden) inputValorKitHidden.value = valorKit;
+}
+
+/**
+ * Inicializa os event listeners da página.
+ */
+function init() {
+  formBuscar?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = parseInt(inputIdProjeto?.value, 10);
+    if (!id || isNaN(id)) return alert('Informe um ID de projeto válido.');
+    buscarProjeto(id);
+  });
+
+  btnAbrirModal?.addEventListener('click', () => {
+    if (!projetoAtual) return alert('Carregue um projeto antes de editar.');
+    modalProjetoId.textContent = projetoAtual.id;
+    abrirModal();
+  });
+
+  console.log('Controller inicializado.');
+}
+
+// Inicia a aplicação
+init();

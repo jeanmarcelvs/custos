@@ -1,21 +1,19 @@
-// js/model.js
-// ==========================================
-// MODEL — versão ATUALIZADA para produção com rastreamento de usuário
-// ==========================================
-
-// Importa cliente da API
 import { getProject, getProjectProposal, getCustomFields, postCustomField } from './api.js';
-import { parseLinhaParaItem, somaListaValores, SEPARADOR, parseLinhaSeparador, converterStringParaNumero } from './utils.js';
+import { somaListaValores, parseLinhaSeparador, converterStringParaNumero } from './utils.js';
 
+/**
+ * Parseia um campo de texto multilinhas em um array de objetos.
+ * Lida com múltiplos formatos de linha (novo com data, antigo sem data).
+ * @param {string} texto - O conteúdo do campo de texto.
+ * @returns {Array<object>} Um array de itens, cada um com id, user, date, descricao, e valor.
+ */
 function parsearCampoTexto(texto) {
     if (!texto) return [];
-    // Lógica de parsing que estava no controller, agora centralizada no model.
     const linhas = texto.split('\n');
     return linhas.filter(l => l.trim() !== '').map((linha, index) => {
         const partes = parseLinhaSeparador(linha);
         if (partes.length < 2) return null;
 
-        // Lógica para lidar com formato novo (com data) e antigo (sem data)
         if (partes.length >= 4) { // Formato novo: user | date | desc | valor
             const [user, date, descricao, valorStr] = partes;
             const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
@@ -32,6 +30,12 @@ function parsearCampoTexto(texto) {
     }).filter(Boolean);
 }
 
+/**
+ * Parseia o campo de texto de indicações em um array de objetos.
+ * Lida com formatos de linha com e sem data.
+ * @param {string} texto - O conteúdo do campo de texto de indicações.
+ * @returns {Array<object>} Um array de itens de indicação.
+ */
 function parsearCampoIndicacao(texto) {
     if (!texto) return [];
     const linhas = texto.split('\n');
@@ -50,6 +54,13 @@ function parsearCampoIndicacao(texto) {
         }
     }).filter(Boolean);
 }
+
+/**
+ * Parseia o campo de texto de combustível em um array de objetos.
+ * Distingue entre itens de 'Venda' (com distância) e 'Instalação' (com litros).
+ * @param {string} texto - O conteúdo do campo de texto de combustível.
+ * @returns {Array<object>} Um array de itens de combustível.
+ */
 function parsearCampoCombustivel(texto) {
     if (!texto) return [];
     return texto.split('\n').filter(l => l.trim() !== '').map((linha, index) => {
@@ -80,17 +91,18 @@ function parsearCampoCombustivel(texto) {
     }).filter(Boolean);
 }
 
+/**
+ * Normaliza um valor monetário vindo da API para um número.
+ * @param {string | number | null | undefined} valor - O valor a ser normalizado.
+ * @returns {number} O valor numérico, ou 0 se inválido.
+ */
 function normalizarValorMoney(valor) {
     if (valor === null || valor === undefined || valor === '') return 0;
-
-    // API vem como "0.00", "12.34", 15.50 etc.
     const n = parseFloat(String(valor).replace(',', '.'));
-
     return isNaN(n) ? 0 : n;
 }
 
-// Mapa estático com TODOS os IDs de campos customizados conhecidos.
-// Esta é a "fonte da verdade" e resolve o problema de campos vazios não retornados pela API.
+/** Mapa estático com todos os IDs de campos customizados conhecidos. */
 const ALL_FIELD_IDS = {
     '[cap_nome_indicador]': 10073,
     '[cap_indicacao]': 12019,
@@ -121,34 +133,31 @@ const ALL_FIELD_IDS = {
     '[cap_comprovantes_alimentacao]': 44990,
 };
 
-// ===============================
-// PARTE 1 — Carregar e interpretar projeto
-// ===============================
-
+/**
+ * Busca todos os dados de um projeto (principais, proposta, campos customizados)
+ * e os processa em um único objeto estruturado.
+ * @param {string | number} projectId - O ID do projeto a ser buscado.
+ * @returns {Promise<object | null>} Um objeto com todos os dados do projeto ou null se falhar.
+ */
 export async function buscarEProcessarProjeto(projectId) {
-    // 1 — Buscar dados principais do projeto
+    // 1. Buscar dados principais do projeto
     const respProj = await getProject(projectId);
     if (!respProj.sucesso) return null;
     const meta = respProj.dados;
 
-    // 2 — Buscar dados da proposta ativa
+    // 2. Buscar dados da proposta ativa
     const respProposal = await getProjectProposal(projectId);
     if (!respProposal.sucesso) return null;
     const proposalData = respProposal.dados;
 
-    // 2 — Buscar campos customizados
+    // 3. Buscar campos customizados
     const respCustom = await getCustomFields(projectId);
     if (!respCustom.sucesso) return null;
     const campos = respCustom.dados || [];
 
-    console.group("[API → PROCESSAR CAMPOS CUSTOMIZADOS]");
-    console.log("Dados brutos recebidos da API (no GET):");
-    console.log(JSON.parse(JSON.stringify(campos))); // Loga uma cópia para evitar mutações
-    console.groupEnd();
-
-    // 3 — Montar objeto rawFields e fieldIds
+    // 4. Montar um objeto com os valores brutos dos campos customizados
     const raw = {};
-    for (const item of campos) { // Este loop agora serve apenas para preencher os valores existentes.
+    for (const item of campos) {
         const key = item.customField.key;
         let value = item.value ?? '';
         const type = item.customField.type;
@@ -158,9 +167,7 @@ export async function buscarEProcessarProjeto(projectId) {
             value = normalizarValorMoney(value); // transforma "0.00" → 0
         }
 
-        // CORREÇÃO: Acumula valores para campos de arquivo, em vez de sobrescrever.
         if (type === 'file' && raw[key]) {
-            // Se a chave já existe e é um arquivo, concatena a nova URL.
             raw[key] += '\n' + value;
         } else {
             // Para todos os outros casos (ou o primeiro arquivo), apenas atribui o valor.
@@ -168,30 +175,24 @@ export async function buscarEProcessarProjeto(projectId) {
         }
     }
 
-    // ===============================
-    // PARTE 2 — Parse multilinhas
-    // ===============================
+    // 5. Parsear campos de texto multilinhas
     const material    = parsearCampoTexto(raw[KEYS.MATERIAL]);
-
     const diarias     = parsearCampoTexto(raw[KEYS.DIARIAS]);
     const despProj    = parsearCampoTexto(raw[KEYS.DESPESAS_PROJETO]);
     const despFixas   = parsearCampoTexto(raw[KEYS.DESPESAS_FIXAS]);
     const ferramenta  = parsearCampoTexto(raw[KEYS.FERRAMENTA]);
     const alimentacao = parsearCampoTexto(raw[KEYS.ALIMENTACAO]);
-    const indicacao   = parsearCampoIndicacao(raw[KEYS.INDICACAO]); // CORREÇÃO: Usa a função de parsing correta para Indicação.
-
+    const indicacao   = parsearCampoIndicacao(raw[KEYS.INDICACAO]);
     const combustivelItens = parsearCampoCombustivel(raw['[cap_quilometragem_percorrida]']);
 
-    // ===============================
-    // PARTE 3 — Totais
-    // ===============================
+    // 6. Calcular totais para cada categoria de custo
     const totalMaterial  = somaListaValores(material);
     const totalDiarias   = somaListaValores(diarias);
     const totalDespProj  = somaListaValores(despProj);
     const totalDespFixas = somaListaValores(despFixas);
     const totalFerram    = somaListaValores(ferramenta);
     const totalAlimentacao = somaListaValores(alimentacao);
-    const totalIndicacao = somaListaValores(indicacao); // 'indicacao' já é uma lista processada
+    const totalIndicacao = somaListaValores(indicacao);
     const totalCombustivel = somaListaValores(combustivelItens);
 
     // ===============================
@@ -212,10 +213,10 @@ export async function buscarEProcessarProjeto(projectId) {
         id: meta.identifier,
         nomeCliente: meta.client?.name ?? '—',
         cliente: meta.client?.name ?? '—',
-        dataCriacao: proposalData.generatedAt || meta.createdAt, // Prioriza a data de geração da proposta
-        status: meta.deletedAt ? 'Arquivado' : 'Ativo', // Mantém a lógica de status
+        dataCriacao: proposalData.generatedAt || meta.createdAt,
+        status: meta.deletedAt ? 'Arquivado' : 'Ativo',
 
-        // Prioriza os valores da proposta, com fallback para campos customizados
+        // Valores principais (prioriza proposta, com fallback para campos customizados)
         valorProposta: valorTotalProposta || raw['[cap_valor_total]'] || 0,
         valorKit: valorKitFotovoltaico || raw['[cap_valor_kit_fotovoltaico]'] || 0,
         imposto: {
@@ -224,7 +225,7 @@ export async function buscarEProcessarProjeto(projectId) {
         },
 
         rawFields: raw,
-        fieldIds: ALL_FIELD_IDS, // Usa o mapa estático completo como fonte da verdade para os IDs.
+        fieldIds: ALL_FIELD_IDS,
         meta: meta,
 
         itens: {
@@ -233,7 +234,7 @@ export async function buscarEProcessarProjeto(projectId) {
             despProjeto: despProj,
             despFixasGerais: despFixas,
             ferramenta,
-            indicacao, // <-- CORREÇÃO: Inclui os itens de indicação no objeto de retorno.
+            indicacao,
             alimentacao,
             combustivel: combustivelItens
         },
@@ -244,7 +245,7 @@ export async function buscarEProcessarProjeto(projectId) {
             despProjeto: totalDespProj,
             despFixas: totalDespFixas,
             ferramenta: totalFerram,
-            alimentacao: totalAlimentacao, // CORREÇÃO: Adiciona o total de alimentação ao objeto de retorno
+            alimentacao: totalAlimentacao,
             indicacao: totalIndicacao,
             combustivel: totalCombustivel,
             outras: totalOutras,
@@ -253,10 +254,13 @@ export async function buscarEProcessarProjeto(projectId) {
     };
 }
 
-// ===============================
-// PARTE 6 — Atualizar múltiplos campos via API
-// ===============================
-
+/**
+ * Atualiza múltiplos campos customizados de uma vez.
+ * @param {string | number} projectId - O ID do projeto.
+ * @param {object} payload - Um objeto onde as chaves correspondem às categorias de custo (ex: 'material') e os valores são o conteúdo a ser salvo.
+ * @param {object} fieldIds - O mapa de IDs de campos do projeto.
+ * @returns {Promise<{sucesso: boolean, resultados: any[]}>}
+ */
 export async function atualizarMultiplosCampos(projectId, payload, fieldIds) {
     const mapping = {
         material:                  '[cap_material]',
@@ -293,34 +297,41 @@ export async function atualizarMultiplosCampos(projectId, payload, fieldIds) {
     };
 }
 
-// Export vazio apenas para compatibilidade com o controller
+/**
+ * Mapeamento de chaves locais para as chaves de campo da API SolarMarket.
+ * Usado para consistência em todo o aplicativo.
+ */
 export const KEYS = {
-    // FIX: Alinha as chaves de lista com o que VEM na API
+    // Chaves para campos de texto com listas de itens
     MATERIAL: '[cap_custos]',
-    DIARIAS: '[cap_diarias]', // CORREÇÃO: Revertendo para a chave correta. O problema de truncamento é na API.
+    DIARIAS: '[cap_diarias]',
     DESPESAS_PROJETO: '[cap_despesas_projeto]',
     DESPESAS_FIXAS: '[cap_despesas_fixas_gerais]',
-    FERRAMENTA: '[cap_ferram_escada_descricao]', // Corrigido de '[cap_ferramenta_escada]'
-    INDICACAO: '[cap_dados_indicador]', // CORREÇÃO: A chave principal de Indicação agora aponta para o campo de texto.
+    FERRAMENTA: '[cap_ferram_escada_descricao]',
+    INDICACAO: '[cap_dados_indicador]',
     COMBUSTIVEL: '[cap_quilometragem_percorrida]',
     ALIMENTACAO: '[cap_alimentacao_itens]',
-    VALOR_TOTAL: '[cap_valor_total]', // Valor da proposta
+
+    // Chaves para valores monetários principais
+    VALOR_TOTAL: '[cap_valor_total]',
     VALOR_KIT: '[cap_valor_kit_fotovoltaico]',
-    // Campos de totais
+
+    // Chaves para campos de totais calculados
     TOTAL_MATERIAL: '[cap_total_custos_material]',
     TOTAL_DIARIAS: '[cap_total_diarias]',
-    TOTAL_DESPESAS_PROJETO: '[cap_total_despesas_projeto]', // Chave para o total de Despesas de Projeto
-    TOTAL_DESPESAS_FIXAS: '[cap_total_despesas_fixas_gerais]', // CORREÇÃO: Padronizado de 'TOTAL_DESP_FIXAS'
-    TOTAL_FERRAMENTA: '[cap_aluguel_ferramentas]', // CORREÇÃO: Usando o campo monetário correto para Aluguel/Ferramenta
+    TOTAL_DESPESAS_PROJETO: '[cap_total_despesas_projeto]',
+    TOTAL_DESPESAS_FIXAS: '[cap_total_despesas_fixas_gerais]',
+    TOTAL_FERRAMENTA: '[cap_aluguel_ferramentas]',
     TOTAL_COMBUSTIVEL: '[cap_combustivel]',
-    TOTAL_ALIMENTACAO: '[cap_alimentacao]', // O campo de total de alimentação
-    TOTAL_INDICACAO: '[cap_valor_indicacao]', // O campo de total para Indicação
-    // Chaves para os campos de comprovantes (arquivos/URLs)
-    COMPROVANTES_DIARIAS: '[cap_comprovantes_diarias]', // Campo que será usado para a lista de itens de diárias.
+    TOTAL_ALIMENTACAO: '[cap_alimentacao]',
+    TOTAL_INDICACAO: '[cap_valor_indicacao]',
+
+    // Chaves para campos de comprovantes (arquivos)
+    COMPROVANTES_DIARIAS: '[cap_comprovantes_diarias]',
     COMPROVANTES_MATERIAL: '[cap_comprovantes]', 
     COMPROVANTES_DESP_PROJETO: '[cap_comprovantes_desp_projeto]',
     COMPROVANTES_DESP_FIXAS: '[cap_comprovantes_desp_fixas_gerais]',
-    COMPROVANTES_ALUGUEIS: '[cap_comprovantes_alugueis]', // Para Ferramenta/Escada
+    COMPROVANTES_ALUGUEIS: '[cap_comprovantes_alugueis]',
     COMPROVANTES_ALIMENTACAO: '[cap_comprovantes_alimentacao]',
     COMPROVANTES_COMBUSTIVEL: '[cap_comprovantes_combust]',
     COMPROVANTE_INDICACAO: '[cap_comprovante_indicacao]'
@@ -333,4 +344,5 @@ export async function atualizarCampoUnico(projectId, fieldKey, novoConteudo, fie
     return await postCustomField(projectId, fieldId, novoConteudo);
 }
 
+// Re-exporta a função getMe da API para uso em outros controllers.
 export { getMe } from './api.js';

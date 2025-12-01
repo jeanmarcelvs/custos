@@ -1,0 +1,11 @@
+# Arquivo de configuração para garantir a consistência dos finais de linha no Git.
+
+# Define o comportamento padrão para todos os arquivos.
+# O Git tentará adivinhar se um arquivo é de texto e, se for, aplicará a normalização de final de linha.
+* text=auto
+
+# Força a normalização para LF (padrão Unix) no repositório para tipos de arquivo de texto comuns.
+# Isso garante que, independentemente do sistema operacional, o repositório permaneça consistente.
+*.js    text
+*.html  text
+*.css   text

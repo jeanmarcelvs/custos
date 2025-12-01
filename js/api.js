@@ -1,23 +1,25 @@
-// =======================================
-// api.js — versão final compatível produção
-// =======================================
-
-import { SEPARADOR, formatarLinhaSeparador, converterStringParaNumero } from './utils.js';
+import { converterStringParaNumero } from './utils.js';
 
 const WORKER_URL = 'https://gdis-custos-service.jeanmarcel-vs.workers.dev';
 
 /**
- * Tratamento de erro padrão
+ * Manipulador de erro padrão para chamadas de API.
+ * @param {Response} response - O objeto de resposta da API.
+ * @param {string} endpoint - O endpoint que foi chamado.
+ * @param {string} method - O método HTTP usado (GET, POST, etc.).
+ * @returns {{sucesso: false, dados: null, mensagem: string}}
  */
 async function handleApiError(response, endpoint, method) {
     const errorBody = await response.text();
-    console.error(`Erro ${method} em ${endpoint}:`, errorBody);
+    console.error(`[API] Erro ${method} em ${endpoint}:`, errorBody);
     return { sucesso: false, dados: null, mensagem: `Erro ${response.status} (${response.statusText})` };
 }
 
-// =================================================
-// GET padrão (raramente usado)
-// =================================================
+/**
+ * Função genérica para realizar uma chamada GET.
+ * @param {string} endpoint - O caminho do endpoint da API (ex: '/users').
+ * @returns {Promise<{sucesso: boolean, dados: any | null, mensagem?: string}>}
+ */
 export async function get(endpoint) {
     try {
         const fullUrl = `${WORKER_URL}/solarmarket${endpoint}`;
@@ -29,21 +31,22 @@ export async function get(endpoint) {
         const dados = await response.json();
         return { sucesso: true, dados };
 
-    } catch (err) {
-        console.error('[GET] Erro:', err);
+    } catch (error) {
+        console.error('[API] Erro em GET genérico:', error);
         return { sucesso: false, dados: null };
     }
 }
 
-// =================================================
-// GET PROJECT — busca dados principais do projeto
-// =================================================
+/**
+ * Busca os dados principais de um projeto específico.
+ * @param {string | number} projectId - O ID do projeto.
+ * @returns {Promise<{sucesso: boolean, dados: object | null, mensagem?: string}>}
+ */
 export async function getProject(projectId) {
     const endpoint = `/solarmarket/projects/${projectId}`;
     const fullUrl = `${WORKER_URL}${endpoint}`;
 
     try {
-        console.log('[GET PROJECT] →', fullUrl);
         const response = await fetch(fullUrl);
 
         if (!response.ok) return await handleApiError(response, endpoint, 'GET');
@@ -59,20 +62,20 @@ export async function getProject(projectId) {
 
         return { sucesso: true, dados: data };
 
-    } catch (err) {
-        console.error('[GET PROJECT] Erro:', err);
+    } catch (error) {
+        console.error('[API] Erro em getProject:', error);
         return { sucesso: false, dados: null };
     }
 }
 
-// =================================================
-// GET PROPOSAL — busca dados da proposta ativa
-// =================================================
+/**
+ * Busca os dados da proposta ativa de um projeto.
+ * @param {string | number} projectId - O ID do projeto.
+ * @returns {Promise<{sucesso: boolean, dados: object | null, mensagem?: string}>}
+ */
 export async function getProjectProposal(projectId) {
     const endpoint = `/solarmarket/projects/${projectId}/proposals`;
     const fullUrl = `${WORKER_URL}${endpoint}`;
-
-    console.log('[GET PROPOSAL] →', fullUrl);
 
     try {
         const response = await fetch(fullUrl);
@@ -83,20 +86,20 @@ export async function getProjectProposal(projectId) {
 
         return { sucesso: true, dados: dados.data };
 
-    } catch (err) {
-        console.error('[GET PROPOSAL] Erro:', err);
+    } catch (error) {
+        console.error('[API] Erro em getProjectProposal:', error);
         return { sucesso: false, dados: null };
     }
 }
 
-// =================================================
-// GET CUSTOM FIELDS
-// =================================================
+/**
+ * Busca todos os campos customizados de um projeto.
+ * @param {string | number} projectId - O ID do projeto.
+ * @returns {Promise<{sucesso: boolean, dados: any[] | null, mensagem?: string}>}
+ */
 export async function getCustomFields(projectId) {
     const endpoint = `/solarmarket/projects/${projectId}/custom-fields`;
     const fullUrl = `${WORKER_URL}${endpoint}`;
-
-    console.log('[GET CUSTOM FIELDS] →', fullUrl);
 
     try {
         const response = await fetch(fullUrl);
@@ -118,74 +121,56 @@ export async function getCustomFields(projectId) {
 
         return { sucesso: true, dados: dados.data };
 
-    } catch (err) {
-        console.error('[GET CUSTOM FIELDS] Erro:', err);
+    } catch (error) {
+        console.error('[API] Erro em getCustomFields:', error);
         return { sucesso: false, dados: null };
     }
 }
 
-// =================================================
-// POST CUSTOM FIELD (update)
-// =================================================
+/**
+ * Atualiza o valor de um campo customizado específico.
+ * @param {string | number} projectId - O ID do projeto.
+ * @param {number} fieldId - O ID do campo customizado.
+ * @param {string | number} value - O novo valor para o campo.
+ * @returns {Promise<{sucesso: boolean, dados: any | null}>}
+ */
 export async function postCustomField(projectId, fieldId, value) {
-    console.group(`[POST CUSTOM FIELD] Campo ${fieldId}`);
-
-    console.log("[1] Valor ENVIADO PARA API:");
-    console.log({
-        projectId,
-        fieldId,
-        valueEnviado: value
-    });
-
     try {
         const url = `${WORKER_URL}/solarmarket/projects/${projectId}/custom-fields/${fieldId}`;
-        console.log("[2] URL destino:", url);
 
         const response = await fetch(url, {
             method: "POST",
-            headers: {
-                Accept: "application/json",
-                "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ value })
         });
 
-        console.log("[3] STATUS da resposta:", response.status);
-
-        let json;
-        try {
-            json = await response.json();
-        } catch (e) {
-            console.log("[4] A API não retornou JSON válido.");
-            json = null;
-        }
-
-        console.log("[5] CONTEÚDO BRUTO DA RESPOSTA DA API (no POST):");
-        console.log(json);
-
-        console.groupEnd();
+        const json = await response.json().catch(() => null);
 
         return { sucesso: response.ok, dados: json };
     } catch (error) {
-        console.error("[ERRO POST CUSTOM FIELD]", error);
-        console.groupEnd();
+        console.error(`[API] Erro em postCustomField para o campo ${fieldId}:`, error);
         throw error;
     }
 }
 
-// =================================================
-// Função utilitária: formata valor antes de enviar para SolarMarket
-// =================================================
+/**
+ * Formata um valor antes de enviá-lo para a API, com base no tipo do campo.
+ * @param {any} valor - O valor a ser formatado.
+ * @param {string} [tipo='text'] - O tipo do campo ('text', 'textarea', 'money').
+ * @returns {string | number}
+ */
 export function formatarValorParaEnvio(valor, tipo = 'text') {
     if (tipo === 'money') return converterStringParaNumero(valor);
     if (tipo === 'textarea' || tipo === 'text') return valor ? valor.trim() : '';
     return valor;
 }
 
-// =================================================
-// AUTHENTICATION
-// =================================================
-
+/**
+ * Cria um novo usuário.
+ * @param {string} email - O e-mail do usuário.
+ * @param {string} password - A senha do usuário.
+ * @returns {Promise<any>}
+ */
 export async function createUser(email, password) {
     const response = await fetch(`${WORKER_URL}/auth/create-user`, {
         method: "POST",
@@ -195,6 +180,12 @@ export async function createUser(email, password) {
     return response.json();
 }
 
+/**
+ * Realiza o login do usuário.
+ * @param {string} email - O e-mail do usuário.
+ * @param {string} password - A senha do usuário.
+ * @returns {Promise<any>}
+ */
 export async function login(email, password) {
     const response = await fetch(`${WORKER_URL}/auth/login`, {
         method: "POST",
@@ -204,6 +195,10 @@ export async function login(email, password) {
     return response.json();
 }
 
+/**
+ * Busca os dados do usuário autenticado usando o token do localStorage.
+ * @returns {Promise<any>}
+ */
 export async function getMe() {
     const token = localStorage.getItem('authToken');
     if (!token) return { sucesso: false, user: null };
