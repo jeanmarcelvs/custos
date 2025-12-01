@@ -295,6 +295,7 @@ function adicionarItem(key) {
  * @returns {HTMLDivElement} O elemento da linha.
  */
 function criarLinhaItemExistente(item, key) {
+    console.log(`[criarLinhaItemExistente] Renderizando item (key: ${key}):`, { id: item.id, date: item.date });
     const row = document.createElement('div');
     row.className = 'item-row';
     row.dataset.itemId = item.id;
@@ -311,7 +312,7 @@ function criarLinhaItemExistente(item, key) {
                 <span>${item.nome || 'Sem nome'}</span><br>
                 <small class="meta-info">${item.telefone || ''}</small>
                 <small class="meta-info owner-info">
-                    <i class="fas fa-user"></i> ${item.user || '?'} | <i class="fas fa-calendar-alt"></i> ${item.date ? new Date(item.date).toLocaleDateString('pt-BR') : 'N/A'}
+                    <i class="fas fa-user"></i> ${item.user || '?'} | <i class="fas fa-calendar-alt"></i> ${item.date ? new Date(item.date.split('T')[0] + 'T12:00:00').toLocaleDateString('pt-BR') : 'N/A'}
                 </small>
             </div>
             <div class="item-value">${formatCurrency(item.valor)}</div>
@@ -321,7 +322,7 @@ function criarLinhaItemExistente(item, key) {
             <div class="item-details">
                 <span>${item.descricao || 'Sem descrição'}</span><br>
                 <small class="meta-info owner-info">
-                    <i class="fas fa-user"></i> ${item.user || '?'} | <i class="fas fa-calendar-alt"></i> ${item.date ? new Date(item.date).toLocaleDateString('pt-BR') : 'N/A'}
+                    <i class="fas fa-user"></i> ${item.user || '?'} | <i class="fas fa-calendar-alt"></i> ${item.date ? new Date(item.date.split('T')[0] + 'T12:00:00').toLocaleDateString('pt-BR') : 'N/A'}
                 </small>
             </div>
             <div class="item-value">${formatCurrency(item.valor)}</div>
@@ -653,13 +654,32 @@ async function salvarItem(key, itemId, data, rowElement) {
     if (!localKeyName) return;
 
     try {
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        // CORREÇÃO: Gera a data local para evitar problemas de fuso horário.
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        console.log(`[salvarItem] Data local gerada (today): ${today}`);
+
         const textoParaApi = projectData.itens[key].map(i => {
+            // Garante que a data seja sempre a data local correta,
+            // corrigindo itens antigos que possam ter datas nulas ou em UTC.
+            const dataCorreta = i.date ? new Date(i.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today;
+            const dataFinal = i.id === itemId ? today : dataCorreta;
+            
+            console.log(`[salvarItem] Processando item ID ${i.id}:`, {
+                originalDate: i.date,
+                correctedDate: dataCorreta,
+                finalDate: dataFinal
+            });
+
             if (key === KEYS.INDICACAO) {
-                return `${i.user || currentUserUsername} | ${i.id === itemId ? today : i.date} | ${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
+                return `${i.user || currentUserUsername} | ${dataFinal} | ${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
             }
-            return `${i.user || currentUserUsername} | ${i.id === itemId ? today : i.date} | ${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
+            return `${i.user || currentUserUsername} | ${dataFinal} | ${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
         }).join('\n');
+        console.log(`[salvarItem] Texto final para API (key: ${key}):\n`, textoParaApi);
 
         const fieldKey = API_KEYS[localKeyName.toUpperCase()];
         await atualizarCampoUnico(projectId, fieldKey, textoParaApi, projectData.fieldIds);
@@ -700,14 +720,29 @@ async function removerItem(key, itemId) {
 
     projectData.itens[key] = projectData.itens[key].filter(i => i.id !== itemId);
 
-    const today = new Date().toISOString().split('T')[0];
+    // CORREÇÃO: Gera a data local para evitar problemas de fuso horário.
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
+    console.log(`[removerItem] Data local gerada (today): ${today}`);
+
     const textoParaApi = projectData.itens[key].map(i => {
+        const dataCorreta = i.date ? new Date(i.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today;
+
+        console.log(`[removerItem] Processando item ID ${i.id} para manter na lista:`, {
+            originalDate: i.date,
+            finalDate: dataCorreta
+        });
+
         if (key === KEYS.INDICACAO) {
-            return `${i.user || currentUserUsername} | ${i.date || today} | ${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
+            return `${i.user || currentUserUsername} | ${dataCorreta} | ${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
         } else {
-            return `${i.user || currentUserUsername} | ${i.date || today} | ${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
+            return `${i.user || currentUserUsername} | ${dataCorreta} | ${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
         }
     }).join('\n');
+    console.log(`[removerItem] Texto final para API (key: ${key}):\n`, textoParaApi);
 
     const localKeyName = Object.keys(KEYS).find(k => KEYS[k] === key);
     if (!localKeyName) return;
@@ -862,7 +897,7 @@ function renderFuelGroup(section, type, item) {
             <span>${item.descricao || 'Combustível'}</span><br>
             ${detailsHTML}
             <small class="meta-info owner-info">
-                <i class="fas fa-user"></i> ${item.user || '?'} | <i class="fas fa-calendar-alt"></i> ${item.date ? new Date(item.date).toLocaleDateString('pt-BR') : 'N/A'}
+                <i class="fas fa-user"></i> ${item.user || '?'} | <i class="fas fa-calendar-alt"></i> ${item.date ? new Date(item.date.split('T')[0] + 'T12:00:00').toLocaleDateString('pt-BR') : 'N/A'}
             </small>
         </div>
         <div class="item-value">${formatCurrency(custo)}</div>
@@ -1038,11 +1073,26 @@ function modoEdicaoCombustivel(section, type, item) {
             const newCombustivelItens = [{...newItemData, user: currentUserUsername}];
             if (otherItem) newCombustivelItens.push(otherItem);
             
-            const today = new Date().toISOString().split('T')[0];
+            // CORREÇÃO: Gera a data local para evitar problemas de fuso horário.
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const today = `${year}-${month}-${day}`;
+            console.log(`[modoEdicaoCombustivel] Data local gerada (today): ${today}`);
+
             const textoParaApi = newCombustivelItens.map(item => {
-                if (item.finalidade === 'Venda') return `${item.user} | ${item.date || today} | ${item.finalidade} | ${item.descricao} | ${item.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR((item.distancia * 2 / CONSUMO_FIXO) * item.valorLitro)}`;
-                return `${item.user} | ${item.date || today} | ${item.finalidade} | ${item.descricao} | ${item.litros} | 0 | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR(item.litros * item.valorLitro)}`;
+                const dataCorreta = item.date ? new Date(item.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today;
+                console.log(`[modoEdicaoCombustivel] Processando item de combustível:`, {
+                    finalidade: item.finalidade,
+                    originalDate: item.date,
+                    finalDate: dataCorreta
+                });
+
+                if (item.finalidade === 'Venda') return `${item.user || currentUserUsername} | ${dataCorreta} | ${item.finalidade} | ${item.descricao} | ${item.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR((item.distancia * 2 / CONSUMO_FIXO) * item.valorLitro)}`;
+                return `${item.user || currentUserUsername} | ${dataCorreta} | ${item.finalidade} | ${item.descricao} | ${item.litros} | 0 | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR(item.litros * item.valorLitro)}`;
             }).join('\n');
+            console.log(`[modoEdicaoCombustivel] Texto final para API (combustível):\n`, textoParaApi);
 
             salvarDadosCombustivel(textoParaApi, newCombustivelItens);
 
@@ -1098,12 +1148,26 @@ async function removerItemCombustivel(typeToRemove) {
     const { vendaItem, instalacaoItem } = getCombustivelItens();
     const remainingItem = typeToRemove === 'venda' ? instalacaoItem : vendaItem;
 
-    const today = new Date().toISOString().split('T')[0];
-    const textoParaApi = remainingItem ? 
-        (remainingItem.finalidade === 'Venda' ? 
-            `${remainingItem.user} | ${remainingItem.date || today} | ${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR((remainingItem.distancia * 2 / CONSUMO_FIXO) * remainingItem.valorLitro)}` :
-            `${remainingItem.user} | ${remainingItem.date || today} | ${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.litros} | 0 | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR(remainingItem.litros * remainingItem.valorLitro)}`)
-        : '';
+    // CORREÇÃO: Gera a data local para evitar problemas de fuso horário.
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
+    console.log(`[removerItemCombustivel] Data local gerada (today): ${today}`);
+
+    const textoParaApi = remainingItem ? (() => {
+        const dataCorreta = remainingItem.date ? new Date(remainingItem.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today;
+        console.log(`[removerItemCombustivel] Processando item restante:`, {
+            finalidade: remainingItem.finalidade,
+            originalDate: remainingItem.date,
+            finalDate: dataCorreta
+        });
+        return remainingItem.finalidade === 'Venda' ?
+            `${remainingItem.user || currentUserUsername} | ${dataCorreta} | ${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR((remainingItem.distancia * 2 / CONSUMO_FIXO) * remainingItem.valorLitro)}` :
+            `${remainingItem.user || currentUserUsername} | ${dataCorreta} | ${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.litros} | 0 | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR(remainingItem.litros * remainingItem.valorLitro)}`;
+    })() : '';
+    console.log(`[removerItemCombustivel] Texto final para API (combustível):\n`, textoParaApi);
 
     const newCombustivelItens = remainingItem ? [remainingItem] : [];
     await salvarDadosCombustivel(textoParaApi, newCombustivelItens);

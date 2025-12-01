@@ -17,14 +17,17 @@ function parsearCampoTexto(texto) {
         if (partes.length >= 4) { // Formato novo: user | date | desc | valor
             const [user, date, descricao, valorStr] = partes;
             const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
+            console.log(`[parsearCampoTexto] Linha formato novo:`, { linha, user, date, descricao, valor });
             return { id: Date.now() + index, user, date, descricao, valor };
         } else if (partes.length >= 3) { // Formato antigo: user | desc | valor
             const [user, descricao, valorStr] = partes;
             const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
+            console.log(`[parsearCampoTexto] Linha formato antigo:`, { linha, user, date: null, descricao, valor });
             return { id: Date.now() + index, user, date: null, descricao, valor }; // date é null
         } else { // Formato mais antigo ainda: desc | valor
             const [descricao, valorStr] = partes;
             const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
+            console.log(`[parsearCampoTexto] Linha formato mais antigo:`, { linha, user: null, date: null, descricao, valor });
             return { id: Date.now() + index, user: null, date: null, descricao, valor }; // user e date são null
         }
     }).filter(Boolean);
@@ -46,10 +49,12 @@ function parsearCampoIndicacao(texto) {
         if (partes.length >= 5) { // Formato novo: user | date | nome | tel | valor
             const [user, date, nome, telefone, valorStr] = partes;
             const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
+            console.log(`[parsearCampoIndicacao] Linha formato novo:`, { linha, user, date, nome, valor });
             return { id: Date.now() + index, user, date, nome, telefone, valor };
         } else { // Formato antigo: user | nome | tel | valor
             const [user, nome, telefone, valorStr] = partes;
             const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
+            console.log(`[parsearCampoIndicacao] Linha formato antigo:`, { linha, user, date: null, nome, valor });
             return { id: Date.now() + index, user, date: null, nome, telefone, valor };
         }
     }).filter(Boolean);
@@ -76,12 +81,14 @@ function parsearCampoCombustivel(texto) {
 
         if (finalidade === 'Venda') {
             const distancia = converterStringParaNumero(hasDate ? partes[4] : partes[3]);
+            console.log(`[parsearCampoCombustivel] Linha Venda:`, { linha, user, date, finalidade, distancia });
             return {
                 id: Date.now() + index, user, date, finalidade, descricao,
                 distancia, valorLitro
             };
         } else if (finalidade === 'Instalação') {
             const litros = converterStringParaNumero(hasDate ? partes[4] : partes[3]);
+            console.log(`[parsearCampoCombustivel] Linha Instalação:`, { linha, user, date, finalidade, litros });
             return {
                 id: Date.now() + index, user, date, finalidade, descricao,
                 litros, valorLitro
