@@ -269,9 +269,17 @@ header.site-header h1 {
 .tabs-nav {
     display: flex;
     flex-wrap: wrap;
-    border-bottom: 1px solid var(--border);
-    padding: .75rem;
     gap: .5rem;
+    background-color: var(--surface); /* Fundo branco para a barra de abas */
+    padding: .5rem 1.5rem; /* Espaçamento interno para os botões */
+    border-bottom: 1px solid var(--border); /* Linha separadora */
+}
+
+.tabs-content {
+    padding: 1.5rem;
+    background-color: #f1f5f9; /* Fundo cinza claro para a área de conteúdo */
+    flex: 1; /* Garante que o conteúdo ocupe o espaço restante */
+    overflow-y: auto; /* Permite rolagem se o conteúdo for grande */
 }
 
 .tab-link {
@@ -295,10 +303,6 @@ header.site-header h1 {
     color: var(--primary);
     background-color: var(--surface);
     box-shadow: var(--shadow-sm);
-}
-
-.tabs-content {
-    padding: 1.5rem;
 }
 
 .tab-pane,
@@ -605,10 +609,8 @@ textarea {
 }
 
 .editor-content {
-    background-color: #f1f5f9;
     flex: 1;
     overflow-y: auto;
-    padding: 1rem;
 }
 
 .header-card {
@@ -904,9 +906,8 @@ textarea::placeholder,
         padding: 0 .5rem;
     }
 
-    .tabs-content,
     .editor-content {
-        padding: 1rem;
+        /* O padding agora é controlado pelo .tabs-content */
     }
 
     .item-row {
@@ -923,5 +924,83 @@ textarea::placeholder,
 @media (max-width: 480px) {
     .kpi-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Estilos para o cabeçalho da página de projeto */
+.site-header {
+    background-color: #fff;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 2rem;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+/* Coluna da Esquerda: Informações do Projeto */
+.header-project-info {
+    flex: 1;
+    min-width: 0; /* Previne que o conteúdo empurre outras colunas */
+}
+
+.header-project-info #proj-title,
+.header-project-info #editor-title {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.project-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+/* Coluna Central: Ações da Página */
+.header-page-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+/* Coluna da Direita: Ações do Usuário */
+.header-user-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+}
+
+/* Media Query para telas menores (smartphones) */
+@media (max-width: 720px) {
+    .header-content {
+        flex-direction: column; /* Empilha os blocos principais verticalmente */
+        align-items: center; /* Centraliza os blocos */
+        gap: 1rem;
+    }
+
+    /* Bloco de informações do projeto: empilhado e centralizado */
+    .header-project-info {
+        text-align: center;
+    }
+    .project-meta {
+        flex-direction: column; /* Empilha cliente e data */
+        align-items: center;
+        gap: 0.25rem;
+        margin-top: 0.5rem;
+    }
+    .project-meta .separator {
+        display: none; /* Esconde o separador "|" em telas pequenas */
     }
 }

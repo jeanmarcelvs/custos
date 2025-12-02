@@ -35,25 +35,29 @@
         <div id="project-details-container" class="oculto">
             <header class="site-header">
                 <div class="header-content">
-                    <div class="header-main">
-                        <div class="title-with-actions">
-                            <h1 id="proj-title">Projeto</h1>
-                            <div class="page-actions">
-                                <button id="btn-search-page" class="btn-ghost" title="Consultar outro projeto"><i class="fas fa-search"></i></button>
-                                <button id="btn-edit-page" class="btn">Editar Custos</button>
-                            </div>
+                    <!-- Coluna da Esquerda: Informações do Projeto -->
+                    <div class="header-project-info">
+                        <h1 id="proj-title">Projeto</h1>
+                        <div class="project-meta">
+                            <span id="client-name-placeholder">Carregando...</span>
+                            <span class="separator">|</span>
+                            <span id="info-data">—</span>
                         </div>
-                        <p class="meta" id="client-name-placeholder" style="margin-bottom:0">Carregando...</p>
-                        <p class="meta" id="info-data" style="margin-top:4px">—</p>
                     </div>
-                    <div class="header-actions">
-                        <div class="page-actions">
-                            <div class="user-info">
-                                <i class="fas fa-user"></i>
-                                <span id="username-details"></span>
-                            </div>
-                            <button id="btn-logout" class="btn-ghost" title="Sair">Sair</button>
+
+                    <!-- Coluna Central: Ações da Página -->
+                    <div class="header-page-actions">
+                        <button id="btn-search-page" class="btn-ghost" title="Consultar outro projeto"><i class="fas fa-search"></i> Consultar</button>
+                        <button id="btn-edit-page" class="btn">Editar Custos</button>
+                    </div>
+
+                    <!-- Coluna da Direita: Ações do Usuário -->
+                    <div class="header-user-actions">
+                        <div class="user-info">
+                            <i class="fas fa-user"></i>
+                            <span id="username-details"></span>
                         </div>
+                        <button id="btn-logout" class="btn-ghost" title="Sair">Sair</button>
                     </div>
                 </div>
             </header>

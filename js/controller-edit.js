@@ -66,8 +66,8 @@ function enableElement(element, enable = true) {
  * @returns {boolean} True se a UI foi inicializada com sucesso, false caso contrário.
  */
 function initializeEditorUI() {
-  const editorSections = $('editor-sections');
-  if (!editorSections) {
+  const editorSectionsContainer = $('editor-sections');
+  if (!editorSectionsContainer) {
     console.error("ERRO CRÍTICO: O container 'editor-sections' não foi encontrado no DOM.");
     return false;
   }
@@ -102,7 +102,7 @@ function initializeEditorUI() {
     </div>
   `;
 
-    editorSections.innerHTML = tabsNavHTML + tabsContentHTML;
+    editorSectionsContainer.innerHTML = tabsNavHTML + tabsContentHTML;
   return true;
 }
 

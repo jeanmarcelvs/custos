@@ -17,19 +17,22 @@
     <div class="editor-wrapper oculto" id="editor-container">
         <div class="editor-card">
             <header class="header-card">
+                <!-- A estrutura do header-content foi atualizada para corresponder à da página de projeto -->
                 <div class="header-content">
-                    <div class="header-main">
-                        <h2 id="editor-title">Custos</h2>
-                        <p class="meta" id="editor-subtitle" style="margin-top:4px">Carregando...</p>
+                    <!-- Coluna da Esquerda: Informações da Página -->
+                    <div class="header-project-info">
+                        <h1 id="editor-title">Editar Custos</h1>
+                        <div class="project-meta">
+                            <span id="editor-subtitle">Carregando...</span>
+                        </div>
                     </div>
-                    <div class="header-actions">
-                        <div class="page-actions">
-                            <button class="btn-cancel" id="btn-voltar">Voltar</button>
-                            <div class="user-info">
-                                <i class="fas fa-user"></i>
-                                <span id="username-edit"></span>
-                            </div>
-                            <button id="btn-logout-edit" class="btn-ghost" title="Sair">Sair</button>
+
+                    <!-- Coluna da Direita: Ações do Usuário e da Página -->
+                    <div class="header-user-actions">
+                        <button class="btn-cancel" id="btn-voltar">Voltar</button>
+                        <div class="user-info">
+                            <i class="fas fa-user"></i>
+                            <span id="username-edit"></span>
                         </div>
                     </div>
                 </div>
