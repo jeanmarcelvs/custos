@@ -13,14 +13,16 @@
     <div class="login-wrapper">
         <div id="login-view" class="login-card">
             <h1 class="login-title">Acessar Plataforma</h1>
-            <form id="login-form">
-                <label for="login-email">Email</label>
-                <input type="email" id="login-email" placeholder="seu@email.com" required>
-                <label for="login-password">Senha</label>
-                <input type="password" id="login-password" placeholder="Sua senha" required>
-                <button type="submit" class="btn w-full">Entrar</button>
-                <p class="text-center mt-2">Não tem uma conta? <a href="#" id="show-register">Cadastre-se</a></p>
-            </form>
+            <div class="form-content">
+                <form id="login-form">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" placeholder="seu@email.com" required>
+                    <label for="login-password">Senha</label>
+                    <input type="password" id="login-password" placeholder="Sua senha" required>
+                    <button type="submit" class="btn w-full">Entrar</button>
+                </form>
+            </div>
+            <div class="card-footer"><p class="text-center">Não tem uma conta? <a href="#" id="show-register">Cadastre-se</a></p></div>
         </div>
         <div id="register-view" class="login-card oculto">
             <h1 class="login-title">Criar Conta</h1>
@@ -37,7 +39,7 @@
                 <a href="#" id="verify-link" target="_blank" rel="noopener noreferrer">Verificar minha conta</a>
                 <p class="small mt-2">Após verificar, você já pode voltar e fazer o login.</p>
             </div>
-            <p class="text-center mt-2">Já tem uma conta? <a href="#" id="show-login">Faça login</a></p>
+            <div class="card-footer"><p class="text-center">Já tem uma conta? <a href="#" id="show-login">Faça login</a></p></div>
         </div>
     </div>
     <script type="module" src="./js/login-controller.js"></script>
