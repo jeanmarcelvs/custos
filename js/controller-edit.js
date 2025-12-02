@@ -1216,12 +1216,16 @@ async function init() {
     return;
   }
   
+  // Pega o nome de usuário salvo no localStorage durante o login
+  currentUserUsername = localStorage.getItem('username');
+  if (currentUserUsername) {
+    $('username-edit').textContent = currentUserUsername;
+  }
+
   try {
+    // Valida a sessão com a API para garantir que o token ainda é válido
     const userData = await getMe();
-    if (userData.sucesso && userData.user.email) {
-      currentUserUsername = userData.user.email.split('@')[0];
-      console.log(`[AUTH] Usuário logado: ${currentUserUsername}`);
-    } else {
+    if (!userData.sucesso || !userData.user) {
       throw new Error('Token inválido ou expirado.');
     }
   } catch (authError) {

@@ -27,12 +27,14 @@ function toggleViews(showRegister = false) {
 
 /**
  * Exibe a seção com o link de verificação de e-mail.
- * @param {string} link - A URL de verificação a ser exibida.
+ * @param {object} data - O objeto de resposta da API, contendo o `verifyLink`.
  */
-function showVerificationLink(link) {
-  registerForm.classList.add('oculto');
-  verifyLinkView.classList.remove('oculto');
-  $('verify-link').href = link;
+function redirectToVerification(data) {
+  if (data && data.verifyLink) {
+    alert('Conta criada com sucesso! Você será redirecionado para verificar seu e-mail.');
+    // Redireciona o navegador para a URL de verificação.
+    window.location.href = data.verifyLink;
+  }
 }
 
 /**
@@ -58,6 +60,20 @@ async function handleApiCall(apiFunction, onSuccess, ...args) {
  * Inicializa todos os event listeners da página de login/registro.
  */
 function init() {
+  // Verifica se a URL contém o parâmetro de verificação bem-sucedida
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('verified') === 'true') {
+    alert('Sua conta foi verificada com sucesso! Por favor, faça o login.');
+    // Limpa a URL para que a mensagem não apareça novamente ao recarregar a página
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } else if (urlParams.get('error') === 'invalid_token') {
+    alert('O link de verificação é inválido ou expirou. Por favor, tente se cadastrar novamente.');
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } else if (urlParams.get('error') === 'user_not_found') {
+    alert('O usuário para verificação não foi encontrado. O link pode ter sido usado ou expirado.');
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
   showRegisterLink.addEventListener('click', (e) => {
     e.preventDefault();
     toggleViews(true);
@@ -78,7 +94,7 @@ function init() {
     if (password.length < 8) {
       return alert('A senha deve ter no mínimo 8 caracteres.');
     }
-    handleApiCall(createUser, showVerificationLink, email, password);
+    handleApiCall(createUser, redirectToVerification, email, password);
   });
 
   loginForm.addEventListener('submit', (e) => {
@@ -86,8 +102,12 @@ function init() {
     const email = $('login-email').value;
     const password = $('login-password').value;
     handleApiCall(login, (data) => {
+      // Salva o token de autenticação
       localStorage.setItem('authToken', data.token);
-      window.location.href = 'projeto.html';
+      // Salva o nome de usuário (parte antes do @) para exibição na UI
+      const username = email.split('@')[0];
+      localStorage.setItem('username', username);
+      window.location.href = 'projeto.html'; // Redireciona para a página de projetos
     }, email, password);
   });
 }

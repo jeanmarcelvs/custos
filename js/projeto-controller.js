@@ -1,163 +1,187 @@
-import { buscarEProcessarProjeto } from "./model.js";
-import { formatarMoeda } from "./utils.js";
+import { getMe, buscarEProcessarProjeto } from './model.js';
+import { formatarMoeda, formatarData } from './utils.js';
 
 /**
  * Atalho para document.getElementById.
- * @param {string} id O ID do elemento a ser encontrado.
+ * @param {string} id O ID do elemento.
  * @returns {HTMLElement | null}
  */
-function $(id) {
-    return document.getElementById(id);
-}
+const $ = (id) => document.getElementById(id);
+
+// --- Estado da Aplicação ---
+let projetoAtual = null;
+
+// --- Seletores do DOM ---
+const projectSearchContainer = $('project-search-container');
+const projectDetailsContainer = $('project-details-container');
+const loadingOverlay = $('loading-overlay');
+
+// Elementos da tela de busca
+const projectSearchForm = $('project-search-form');
+const projectIdInput = $('project-id-input');
+const usernameSearchSpan = $('username-search');
+const usernameDetailsSpan = $('username-details');
+const btnLogoutSearch = $('btn-logout-search');
+
+// Elementos da tela de detalhes
+const btnLogoutDetails = $('btn-logout');
+const btnSearchPage = $('btn-search-page');
+const btnEditPage = $('btn-edit-page');
 
 /**
- * Exibe ou oculta a tela de carregamento (spinner).
- * @param {boolean} mostrar True para exibir, false para ocultar.
+ * Exibe ou oculta a tela de carregamento.
+ * @param {boolean} [mostrar=true] - True para exibir, false para ocultar.
  */
 function mostrarLoading(mostrar = true) {
-    $("loading-overlay")?.classList.toggle("oculto", !mostrar);
+    loadingOverlay?.classList.toggle('oculto', !mostrar);
 }
 
 /**
- * Exibe a tela inicial para busca de projeto.
+ * Realiza o logout do usuário, limpando o localStorage e redirecionando para o login.
  */
-function exibirTelaDeBusca() {
-    $("project-details-container")?.classList.add("oculto");
-    $("project-search-container")?.classList.remove("oculto");
-
-    $("project-search-form")?.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const id = $("project-id-input").value;
-        if (id) {
-            window.location.href = `projeto.html?projectId=${encodeURIComponent(id)}`;
-        }
-    });
+function logout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('username');
+    window.location.href = 'index.html';
 }
 
 /**
- * Preenche a interface com os dados do projeto carregado.
- * @param {object} projeto O objeto do projeto retornado pela API.
+ * Exibe o nome do usuário na interface.
  */
-function renderizarDetalhesProjeto(projeto) {
-    $("project-details-container")?.classList.remove("oculto");
-    $("project-search-container")?.classList.add("oculto");
-
-    // Preenche o cabeçalho
-    $("proj-title").innerHTML = `Projeto <span class="project-id-tag">#${projeto.id}</span>`;
-    $("client-name-placeholder").textContent = projeto.nomeCliente ?? "Cliente não informado";
-    $("info-data").textContent = new Date(projeto.dataCriacao).toLocaleDateString("pt-BR");
-
-    // Cálculos
-    const valorKit = Number(projeto.valorKit ?? 0);
-    const valorProposta = Number(projeto.valorProposta ?? 0);
-    const valorGDIS = valorProposta - valorKit;
-    const totalCustos = Number(projeto.totais?.totalGeral ?? 0);
-    const valorImposto = 0.12 * valorGDIS;
-    const lucroSemImposto = valorGDIS - totalCustos;
-    const lucroComImposto = lucroSemImposto - valorImposto;
-
-    // Preenche KPIs
-    $("val-total-projeto").textContent = formatarMoeda(valorProposta);
-    $("val-kit").textContent = formatarMoeda(valorKit);
-    $("val-gdis").textContent = formatarMoeda(valorGDIS);
-    $("val-custos").textContent = formatarMoeda(totalCustos);
-    $("val-lucro-sem-imposto").textContent = formatarMoeda(lucroSemImposto);
-    $("val-imposto").textContent = formatarMoeda(valorImposto);
-    $("val-lucro-com-imposto").textContent = formatarMoeda(lucroComImposto);
-
-    // Aplica classes de estilo aos KPIs
-    $("val-total-projeto").closest(".kpi").classList.add("kpi-neutral");
-    $("val-kit").closest(".kpi").classList.add("kpi-neutral");
-    $("val-lucro-sem-imposto").closest(".kpi").classList.add("kpi-lucro-bruto");
-    $("val-custos").closest(".kpi").classList.add("kpi-cost");
-    $("val-imposto").closest(".kpi").classList.add("kpi-cost");
-
-    const kpiLucroCard = $("val-lucro-com-imposto").closest(".kpi");
-    kpiLucroCard.classList.remove("kpi-profit-good", "kpi-profit-warning", "kpi-profit-bad");
-    const margemDeLucro = valorGDIS > 0 ? (lucroComImposto / valorGDIS) * 100 : 0;
-
-    if (margemDeLucro > 17) {
-        kpiLucroCard.classList.add("kpi-profit-good");
-    } else if (margemDeLucro >= 13) {
-        kpiLucroCard.classList.add("kpi-profit-warning");
-    } else {
-        kpiLucroCard.classList.add("kpi-profit-bad");
+function displayUsername() {
+    const username = localStorage.getItem('username');
+    if (username) {
+        if (usernameSearchSpan) usernameSearchSpan.textContent = username;
+        if (usernameDetailsSpan) usernameDetailsSpan.textContent = username;
     }
-
-    // Preenche resumo de custos
-    $("break-material").textContent = formatarMoeda(Number(projeto.totais?.material ?? 0));
-    $("break-diarias").textContent = formatarMoeda(Number(projeto.totais?.diarias ?? 0));
-    $("break-combustivel").textContent = formatarMoeda(Number(projeto.totais?.combustivel ?? 0));
-    $("break-outras").textContent = formatarMoeda(Number(projeto.totais?.outras ?? 0));
 }
 
 /**
- * Configura os event listeners para os botões da página.
- * @param {string | null} projectId O ID do projeto atual.
+ * Preenche a tela de detalhes com os dados do projeto.
+ * @param {object} dados - O objeto do projeto processado.
  */
-function configurarEventListeners(projectId) {
-    $("btn-edit-page")?.addEventListener("click", () => {
-        if (projectId) {
-            window.location.href = `editar-projeto.html?projectId=${encodeURIComponent(projectId)}`;
-        } else {
-            alert("Nenhum projeto selecionado.");
-        }
-    });
+function renderProjectDetails(dados) {
+    // Cabeçalho
+    $('proj-title').textContent = `Projeto #${dados.id}`;
+    $('client-name-placeholder').textContent = dados.nomeCliente;
+    $('info-data').textContent = formatarData(dados.dataCriacao);
 
-    $("btn-logout")?.addEventListener("click", () => {
-        localStorage.removeItem("authToken");
-        window.location.href = "index.html";
-    });
+    // KPIs Principais
+    $('val-total-projeto').textContent = formatarMoeda(dados.valorProposta);
+    $('val-kit').textContent = formatarMoeda(dados.valorKit);
+    $('val-gdis').textContent = formatarMoeda(dados.valorProposta - dados.valorKit);
+    $('val-custos').textContent = formatarMoeda(dados.totais.totalGeral);
+    
+    const lucroBruto = dados.valorProposta - dados.valorKit - dados.totais.totalGeral;
+    $('val-lucro-sem-imposto').textContent = formatarMoeda(lucroBruto);
+    $('val-imposto').textContent = formatarMoeda(dados.imposto.valor);
+    $('val-lucro-com-imposto').textContent = formatarMoeda(lucroBruto - dados.imposto.valor);
 
-    $("btn-logout-search")?.addEventListener("click", () => {
-        localStorage.removeItem("authToken");
-        window.location.href = "index.html";
-    });
+    // Resumo de Custos
+    $('break-material').textContent = formatarMoeda(dados.totais.material);
+    $('break-diarias').textContent = formatarMoeda(dados.totais.diarias);
+    $('break-combustivel').textContent = formatarMoeda(dados.totais.combustivel);
+    $('break-outras').textContent = formatarMoeda(dados.totais.outras);
 
-    $("btn-refresh")?.addEventListener("click", () => location.reload());
-
-    $("btn-search-page")?.addEventListener("click", () => {
-        window.location.href = "projeto.html";
-    });
+    // Alterna a visibilidade dos containers
+    projectSearchContainer.classList.add('oculto');
+    projectDetailsContainer.classList.remove('oculto');
 }
 
 /**
- * Função de inicialização da página.
+ * Busca os dados de um projeto na API e renderiza na tela.
+ * @param {string} projectId - O ID do projeto.
  */
-async function init() {
-    if (!localStorage.getItem("authToken")) {
-        window.location.href = "index.html";
-        return;
-    }
-
-    const params = new URLSearchParams(location.search);
-    const projectId = params.get("projectId");
-
-    configurarEventListeners(projectId);
-
-    if (!projectId) {
-        exibirTelaDeBusca();
-        return;
-    }
-
+async function fetchAndRenderProject(projectId) {
     mostrarLoading(true);
     try {
-        const projeto = await buscarEProcessarProjeto(projectId);
-        if (projeto) {
-            renderizarDetalhesProjeto(projeto);
-        } else {
-            alert("Erro ao carregar projeto. Veja o console.");
-            // Redireciona para a busca se o projeto não for encontrado
-            window.location.href = "projeto.html";
+        const dados = await buscarEProcessarProjeto(projectId);
+        if (!dados) {
+            alert(`Projeto #${projectId} não encontrado ou falha ao carregar.`);
+            // Volta para a tela de busca se o projeto não for encontrado
+            window.history.replaceState({}, document.title, window.location.pathname);
+            projectDetailsContainer.classList.add('oculto');
+            projectSearchContainer.classList.remove('oculto');
+            return;
         }
+        projetoAtual = dados;
+        renderProjectDetails(dados);
+
+        // Atualiza a URL sem recarregar a página
+        const url = new URL(window.location);
+        url.searchParams.set('projectId', projectId);
+        window.history.pushState({}, '', url);
+
     } catch (error) {
-        $("client-name-placeholder").textContent = "Falha ao carregar dados.";
-        console.error(error);
-        alert("Erro ao carregar projeto. Veja o console.");
+        console.error('Erro ao buscar e renderizar projeto:', error);
+        alert('Ocorreu um erro ao carregar o projeto. Verifique o console.');
     } finally {
         mostrarLoading(false);
     }
 }
 
-// Inicia a aplicação
-init();
+/**
+ * Verifica a sessão do usuário e decide qual tela mostrar.
+ */
+async function checkSessionAndInitialize() {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        logout(); // Se não há token, força o logout
+        return;
+    }
+
+    try {
+        // Valida o token com a API
+        const userData = await getMe();
+        if (!userData.sucesso) {
+            throw new Error('Sessão inválida ou expirada.');
+        }
+
+        // Exibe o nome do usuário
+        displayUsername();
+
+        // Lógica para decidir qual tela mostrar (busca ou detalhes)
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectId = urlParams.get('projectId');
+
+        if (projectId) {
+            // Se houver um projectId na URL, busca e renderiza os dados
+            await fetchAndRenderProject(projectId);
+        } else {
+            // Senão, mostra a tela de busca
+            projectSearchContainer.classList.remove('oculto');
+        }
+
+    } catch (error) {
+        console.error('Erro de sessão:', error);
+        logout();
+    }
+}
+
+// --- Inicialização ---
+document.addEventListener('DOMContentLoaded', () => {
+    btnLogoutSearch.addEventListener('click', logout);
+    btnLogoutDetails.addEventListener('click', logout);
+
+    projectSearchForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const projectId = projectIdInput.value.trim();
+        if (projectId) {
+            fetchAndRenderProject(projectId);
+        }
+    });
+
+    btnSearchPage.addEventListener('click', () => {
+        window.history.pushState({}, '', 'projeto.html');
+        projectDetailsContainer.classList.add('oculto');
+        projectSearchContainer.classList.remove('oculto');
+        projectIdInput.value = '';
+        projectIdInput.focus();
+    });
+
+    btnEditPage.addEventListener('click', () => {
+        if (projetoAtual) window.location.href = `editar-projeto.html?projectId=${projetoAtual.id}`;
+    });
+
+    checkSessionAndInitialize();
+});
