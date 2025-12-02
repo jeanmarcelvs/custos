@@ -1,1 +1,46 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GDIS - Acesso</title><link rel="icon" href="favicon.ico" type="image/x-icon"><link rel="stylesheet" href="./css/style.css"></head><body><div class="login-wrapper"><div id="login-view" class="login-card"><h1 class="login-title">Acessar Plataforma</h1><form id="login-form"><label for="login-email">Email</label><input type="email" id="login-email" placeholder="seu@email.com" required><label for="login-password">Senha</label><input type="password" id="login-password" placeholder="Sua senha" required><button type="submit" class="btn w-full">Entrar</button><p class="text-center mt-2">Não tem uma conta? <a href="#" id="show-register">Cadastre-se</a></p></form></div><div id="register-view" class="login-card oculto"><h1 class="login-title">Criar Conta</h1><form id="register-form"><label for="register-email">Email</label><input type="email" id="register-email" placeholder="seu@email.com" required><label for="register-password">Senha</label><input type="password" id="register-password" placeholder="Mínimo 8 caracteres" required><button type="submit" class="btn w-full">Criar Conta</button></form><div id="verify-link-view" class="oculto"><p>✅ **Conta criada!**</p><p>Para ativar sua conta, clique no link abaixo. Este link é válido por 1 hora.</p><a href="#" id="verify-link" target="_blank" rel="noopener noreferrer">Verificar minha conta</a><p class="small mt-2">Após verificar, você já pode voltar e fazer o login.</p></div><p class="text-center mt-2">Já tem uma conta? <a href="#" id="show-login">Faça login</a></p></div></div><script type="module" src="./js/login-controller.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>GDIS - Acesso</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+
+<body>
+    <div class="login-wrapper">
+        <div id="login-view" class="login-card">
+            <h1 class="login-title">Acessar Plataforma</h1>
+            <form id="login-form">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" placeholder="seu@email.com" required>
+                <label for="login-password">Senha</label>
+                <input type="password" id="login-password" placeholder="Sua senha" required>
+                <button type="submit" class="btn w-full">Entrar</button>
+                <p class="text-center mt-2">Não tem uma conta? <a href="#" id="show-register">Cadastre-se</a></p>
+            </form>
+        </div>
+        <div id="register-view" class="login-card oculto">
+            <h1 class="login-title">Criar Conta</h1>
+            <form id="register-form">
+                <label for="register-email">Email</label>
+                <input type="email" id="register-email" placeholder="seu@email.com" required>
+                <label for="register-password">Senha</label>
+                <input type="password" id="register-password" placeholder="Mínimo 8 caracteres" required>
+                <button type="submit" class="btn w-full">Criar Conta</button>
+            </form>
+            <div id="verify-link-view" class="oculto">
+                <p>✅ **Conta criada!**</p>
+                <p>Para ativar sua conta, clique no link abaixo. Este link é válido por 1 hora.</p>
+                <a href="#" id="verify-link" target="_blank" rel="noopener noreferrer">Verificar minha conta</a>
+                <p class="small mt-2">Após verificar, você já pode voltar e fazer o login.</p>
+            </div>
+            <p class="text-center mt-2">Já tem uma conta? <a href="#" id="show-login">Faça login</a></p>
+        </div>
+    </div>
+    <script type="module" src="./js/login-controller.js"></script>
+</body>
+
+</html>

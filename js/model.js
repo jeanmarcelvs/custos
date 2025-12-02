@@ -8,29 +8,39 @@ import { somaListaValores, parseLinhaSeparador, converterStringParaNumero } from
  * @returns {Array<object>} Um array de itens, cada um com id, user, date, descricao, e valor.
  */
 function parsearCampoTexto(texto) {
-    if (!texto) return [];
-    const linhas = texto.split('\n');
-    return linhas.filter(l => l.trim() !== '').map((linha, index) => {
-        const partes = parseLinhaSeparador(linha);
-        if (partes.length < 2) return null;
+    if (!texto || texto.trim() === '') return [];
 
-        if (partes.length >= 4) { // Formato novo: user | date | desc | valor
-            const [user, date, descricao, valorStr] = partes;
-            const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
-            console.log(`[parsearCampoTexto] Linha formato novo:`, { linha, user, date, descricao, valor });
-            return { id: Date.now() + index, user, date, descricao, valor };
-        } else if (partes.length >= 3) { // Formato antigo: user | desc | valor
-            const [user, descricao, valorStr] = partes;
-            const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
-            console.log(`[parsearCampoTexto] Linha formato antigo:`, { linha, user, date: null, descricao, valor });
-            return { id: Date.now() + index, user, date: null, descricao, valor }; // date é null
-        } else { // Formato mais antigo ainda: desc | valor
-            const [descricao, valorStr] = partes;
-            const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
-            console.log(`[parsearCampoTexto] Linha formato mais antigo:`, { linha, user: null, date: null, descricao, valor });
-            return { id: Date.now() + index, user: null, date: null, descricao, valor }; // user e date são null
+    // 1. Tenta parsear como JSON (novo formato, mais robusto)
+    try {
+        const itens = JSON.parse(texto);
+        if (Array.isArray(itens)) {
+            console.log(`[parsearCampoTexto] Sucesso ao parsear como JSON.`);
+            return itens.map((item, index) => ({ id: item.id || Date.now() + index, ...item }));
         }
-    }).filter(Boolean);
+    } catch (e) {
+        // 2. Se falhar, assume que é o formato antigo (string com separadores) e faz o parse legado.
+        console.warn("[parsearCampoTexto] Falha ao parsear como JSON, recorrendo ao parser legado. Texto:", texto);
+        const linhas = texto.split('\n');
+        return linhas.filter(l => l.trim() !== '').map((linha, index) => {
+            const partes = parseLinhaSeparador(linha);
+            if (partes.length < 2) return null;
+
+            if (partes.length >= 4) { // Formato novo: user | date | desc | valor
+                const [user, date, descricao, valorStr] = partes;
+                const valor = converterStringParaNumero(valorStr);
+                return { id: Date.now() + index, user, date, descricao, valor };
+            } else if (partes.length >= 3) { // Formato antigo: user | desc | valor
+                const [user, descricao, valorStr] = partes;
+                const valor = converterStringParaNumero(valorStr);
+                return { id: Date.now() + index, user, date: null, descricao, valor };
+            } else { // Formato mais antigo ainda: desc | valor
+                const [descricao, valorStr] = partes;
+                const valor = converterStringParaNumero(valorStr);
+                return { id: Date.now() + index, user: null, date: null, descricao, valor };
+            }
+        }).filter(Boolean);
+    }
+    return []; // Retorna array vazio se o JSON for válido mas não for um array
 }
 
 /**
@@ -40,24 +50,33 @@ function parsearCampoTexto(texto) {
  * @returns {Array<object>} Um array de itens de indicação.
  */
 function parsearCampoIndicacao(texto) {
-    if (!texto) return [];
-    const linhas = texto.split('\n');
-    return linhas.filter(l => l.trim() !== '').map((linha, index) => {
-        const partes = parseLinhaSeparador(linha);
-        if (partes.length < 3) return null;
+    if (!texto || texto.trim() === '') return [];
 
-        if (partes.length >= 5) { // Formato novo: user | date | nome | tel | valor
-            const [user, date, nome, telefone, valorStr] = partes;
-            const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
-            console.log(`[parsearCampoIndicacao] Linha formato novo:`, { linha, user, date, nome, valor });
-            return { id: Date.now() + index, user, date, nome, telefone, valor };
-        } else { // Formato antigo: user | nome | tel | valor
-            const [user, nome, telefone, valorStr] = partes;
-            const valor = parseFloat(String(valorStr).replace(/\./g, '').replace(',', '.')) || 0;
-            console.log(`[parsearCampoIndicacao] Linha formato antigo:`, { linha, user, date: null, nome, valor });
-            return { id: Date.now() + index, user, date: null, nome, telefone, valor };
+    try {
+        const itens = JSON.parse(texto);
+        if (Array.isArray(itens)) {
+            console.log(`[parsearCampoIndicacao] Sucesso ao parsear como JSON.`);
+            return itens.map((item, index) => ({ id: item.id || Date.now() + index, ...item }));
         }
-    }).filter(Boolean);
+    } catch (e) {
+        console.warn("[parsearCampoIndicacao] Falha ao parsear como JSON, recorrendo ao parser legado. Texto:", texto);
+        const linhas = texto.split('\n');
+        return linhas.filter(l => l.trim() !== '').map((linha, index) => {
+            const partes = parseLinhaSeparador(linha);
+            if (partes.length < 3) return null;
+
+            if (partes.length >= 5) { // Formato novo: user | date | nome | tel | valor
+                const [user, date, nome, telefone, valorStr] = partes;
+                const valor = converterStringParaNumero(valorStr);
+                return { id: Date.now() + index, user, date, nome, telefone, valor };
+            } else { // Formato antigo: user | nome | tel | valor
+                const [user, nome, telefone, valorStr] = partes;
+                const valor = converterStringParaNumero(valorStr);
+                return { id: Date.now() + index, user, date: null, nome, telefone, valor };
+            }
+        }).filter(Boolean);
+    }
+    return [];
 }
 
 /**
@@ -67,35 +86,44 @@ function parsearCampoIndicacao(texto) {
  * @returns {Array<object>} Um array de itens de combustível.
  */
 function parsearCampoCombustivel(texto) {
-    if (!texto) return [];
-    return texto.split('\n').filter(l => l.trim() !== '').map((linha, index) => {
-        const partes = parseLinhaSeparador(linha);
-        if (partes.length < 4) return null;
+    if (!texto || texto.trim() === '') return [];
 
-        const hasDate = partes.length >= 5 && /^\d{4}-\d{2}-\d{2}$/.test(partes[1]);
-        const user = partes[0];
-        const date = hasDate ? partes[1] : null;
-        const finalidade = hasDate ? partes[2] : partes[1];
-        const descricao = hasDate ? partes[3] : partes[2];
-        const valorLitro = converterStringParaNumero(partes[partes.length - 2]);
-
-        if (finalidade === 'Venda') {
-            const distancia = converterStringParaNumero(hasDate ? partes[4] : partes[3]);
-            console.log(`[parsearCampoCombustivel] Linha Venda:`, { linha, user, date, finalidade, distancia });
-            return {
-                id: Date.now() + index, user, date, finalidade, descricao,
-                distancia, valorLitro
-            };
-        } else if (finalidade === 'Instalação') {
-            const litros = converterStringParaNumero(hasDate ? partes[4] : partes[3]);
-            console.log(`[parsearCampoCombustivel] Linha Instalação:`, { linha, user, date, finalidade, litros });
-            return {
-                id: Date.now() + index, user, date, finalidade, descricao,
-                litros, valorLitro
-            };
+    try {
+        const itens = JSON.parse(texto);
+        if (Array.isArray(itens)) {
+            console.log(`[parsearCampoCombustivel] Sucesso ao parsear como JSON.`);
+            return itens.map((item, index) => ({ id: item.id || Date.now() + index, ...item }));
         }
-        return null;
-    }).filter(Boolean);
+    } catch (e) {
+        console.warn("[parsearCampoCombustivel] Falha ao parsear como JSON, recorrendo ao parser legado. Texto:", texto);
+        return texto.split('\n').filter(l => l.trim() !== '').map((linha, index) => {
+            const partes = parseLinhaSeparador(linha);
+            if (partes.length < 4) return null;
+
+            const hasDate = partes.length >= 5 && /^\d{4}-\d{2}-\d{2}$/.test(partes[1]);
+            const user = partes[0];
+            const date = hasDate ? partes[1] : null;
+            const finalidade = hasDate ? partes[2] : partes[1];
+            const descricao = hasDate ? partes[3] : partes[2];
+            const valorLitro = converterStringParaNumero(partes[partes.length - 2]);
+
+            if (finalidade === 'Venda') {
+                const distancia = converterStringParaNumero(hasDate ? partes[4] : partes[3]);
+                return {
+                    id: Date.now() + index, user, date, finalidade, descricao,
+                    distancia, valorLitro
+                };
+            } else if (finalidade === 'Instalação') {
+                const litros = converterStringParaNumero(hasDate ? partes[4] : partes[3]);
+                return {
+                    id: Date.now() + index, user, date, finalidade, descricao,
+                    litros, valorLitro
+                };
+            }
+            return null;
+        }).filter(Boolean);
+    }
+    return [];
 }
 
 /**

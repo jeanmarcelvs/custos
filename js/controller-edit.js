@@ -41,7 +41,24 @@ function mostrarLoading(sim = true) {
  * @param {boolean} [lock=true] - True para bloquear, false para desbloquear.
  */
 function lockInterface(lock = true) {
-    document.body.classList.toggle('is-locked-for-editing', lock);
+    document.body.classList.toggle('is-locked-for-editing', lock); // Mantém para desabilitar abas e botão voltar.
+
+    // REVISÃO PROFUNDA: Lógica de bloqueio movida para o JS para controle explícito.
+    const elementsToToggle = document.querySelectorAll('.btn-action, .btn-add-item');
+    
+    if (lock) {
+        // Ao bloquear, desabilita TODOS os botões de ação.
+        // Os botões da linha de edição serão reabilitados explicitamente depois.
+        elementsToToggle.forEach(el => el.classList.add('is-disabled'));
+    } else {
+        // Ao desbloquear, simplesmente remove a classe de todos.
+        elementsToToggle.forEach(el => el.classList.remove('is-disabled'));
+    }
+}
+
+function enableElement(element, enable = true) {
+    if (!element) return;
+    element.classList.toggle('is-disabled', !enable);
 }
 
 /**
@@ -55,16 +72,16 @@ function initializeEditorUI() {
     return false;
   }
 
-  const sections = [
-    { title: 'Projeto', key: KEYS.DESPESAS_PROJETO, listId: 'lista-despesas-projeto' },
-    { title: 'Fixa/Admin', key: KEYS.DESPESAS_FIXAS, listId: 'lista-despFixasGerais' },
-    { title: 'Material Inst.', key: KEYS.MATERIAL, listId: 'lista-material' },
-    { title: 'Diárias/M.O.', key: KEYS.DIARIAS, listId: 'lista-diarias' },
-    { title: 'Aluguel', key: KEYS.FERRAMENTA, listId: 'lista-ferramenta' },
-    { title: 'Indicação', key: KEYS.INDICACAO, listId: 'lista-indicacao' },
-  ];
+    const sections = [
+        { title: 'Projeto', key: KEYS.DESPESAS_PROJETO, listId: 'lista-despesas-projeto' },
+        { title: 'Fixa/Admin', key: KEYS.DESPESAS_FIXAS, listId: 'lista-despFixasGerais' },
+        { title: 'Material Inst.', key: KEYS.MATERIAL, listId: 'lista-material' },
+        { title: 'Diárias/M.O.', key: KEYS.DIARIAS, listId: 'lista-diarias' },
+        { title: 'Aluguel', key: KEYS.FERRAMENTA, listId: 'lista-ferramenta' },
+        { title: 'Indicação', key: KEYS.INDICACAO, listId: 'lista-indicacao' },
+    ];
 
-  const tabsNavHTML = `
+    const tabsNavHTML = `
     <div class="tabs-nav">
       ${sections.map((s, index) => `<button class="tab-link ${index === 0 ? 'active' : ''}" data-tab="sec-${s.listId.replace('lista-', '')}">${s.title}</button>`).join('')}
       <button class="tab-link" data-tab="sec-combustivel">Combustível</button>
@@ -72,7 +89,7 @@ function initializeEditorUI() {
     </div>
   `;
 
-  const tabsContentHTML = `
+    const tabsContentHTML = `
     <div class="tabs-content">
       ${sections.map(s => createSectionHTML(s.key, s.listId)).join('')}
       <div class="editor-section" id="sec-combustivel" data-key="combustivel">
@@ -85,7 +102,7 @@ function initializeEditorUI() {
     </div>
   `;
 
-  editorSections.innerHTML = tabsNavHTML + tabsContentHTML;
+    editorSections.innerHTML = tabsNavHTML + tabsContentHTML;
   return true;
 }
 
@@ -169,14 +186,16 @@ function setupEventListeners() {
       tabPanes.forEach(p => p.classList.remove('active'));
 
       link.classList.add('active');
-      document.getElementById(tabId).classList.add('active');
+      const activePane = document.getElementById(tabId);
+      if (activePane) activePane.classList.add('active');
+
     });
   });
 
   document.querySelectorAll('.btn-add-item').forEach(button => {
     button.addEventListener('click', (e) => {
-      const section = e.currentTarget.closest('.editor-section');
-      const key = section.dataset.key;
+      // CORREÇÃO: Encontra a chave da seção a partir do elemento pai do accordion.
+      const key = e.currentTarget.closest('.editor-section').dataset.key;
       adicionarItem(key);
     });
   });
@@ -383,6 +402,23 @@ function criarLinhaItemNovo(item, key) {
     row.dataset.itemId = item.id;
     return row;
 }
+/**
+ * Habilita os botões de ação dentro de um elemento específico.
+ * @param {HTMLElement} parentElement O elemento pai (ex: a linha de edição).
+ */
+function enableActionsWithin(parentElement) {
+    parentElement.querySelectorAll('.btn-action').forEach(btn => enableElement(btn, true));
+}
+
+/**
+ * Limpa todos os botões que estão em estado de confirmação.
+ */
+function clearAllConfirmations() {
+    const confirmedButton = document.querySelector('[data-confirmed="true"]');
+    if (confirmedButton && confirmedButton._revert) {
+        confirmedButton._revert();
+    }
+}
 
 /**
  * Valida um conjunto de campos de input.
@@ -428,11 +464,66 @@ function setupValidation(inputs, saveButton) {
     });
 }
 
+/**
+ * Transforma um botão em um botão de confirmação temporário.
+ * @param {HTMLElement} element O botão a ser modificado.
+ * @param {string} text O texto de confirmação.
+ */
+function confirmAction(element, text = 'Confirmar?') {
+    const originalHTML = element.innerHTML;
+    const originalClass = element.className;
+
+    const selectivelyDisabled = [];
+    // REVISÃO PROFUNDA: Bloqueio seletivo para confirmação.
+    // Desabilita todos os botões, exceto o de confirmação e os de edição (escape).
+    document.querySelectorAll('.btn-action, .btn-add-item').forEach(btn => {
+        if (btn !== element && !btn.classList.contains('btn-edit')) {
+            enableElement(btn, false);
+            selectivelyDisabled.push(btn);
+        }
+    });
+
+    element.dataset.confirmed = 'true';
+    element.innerHTML = `<i class="fas fa-check"></i> ${text}`;
+
+    // CORREÇÃO: Adiciona a classe de confirmação apropriada para aplicar o estilo de destaque do CSS.
+    // Isso restaura o fundo vermelho/verde e a largura do botão.
+    if (originalClass.includes('success')) {
+        element.classList.add('confirm-save');
+    } else if (originalClass.includes('danger') || element.classList.contains('btn-delete')) { // Adicionado .btn-delete para o caso do combustível
+        element.classList.add('confirm-delete');
+    }
+
+    // Armazena a função de reversão no próprio elemento para acesso externo.
+    element._revert = () => {
+        if (element.dataset.confirmed) {
+            delete element.dataset.confirmed;
+            element.innerHTML = originalHTML;
+            element.className = originalClass;
+            // REVISÃO PROFUNDA: Restaura o estado de bloqueio correto.
+            // Se ainda estivermos em modo de edição (a linha tem a classe 'editing'),
+            // reabilita apenas os botões da linha atual. Caso contrário, libera tudo.
+            const parentRow = element.closest('.editing');
+            if (parentRow) enableActionsWithin(parentRow);
+
+            element.classList.remove('confirm-save', 'confirm-delete'); // Limpa as classes de confirmação
+            document.removeEventListener('click', element._revert);
+            delete element._revert; // Limpa a referência
+        }
+    };
+
+    setTimeout(element._revert, 3000);
+    document.addEventListener('click', element._revert);
+}
+
 function modoEdicao(item, rowElement, opts = {}) {
-    lockInterface(true);
+    // CORREÇÃO: Garante que qualquer estado de confirmação anterior seja limpo
+    // antes de entrar no modo de edição, evitando que os novos botões sejam desabilitados.
+    clearAllConfirmations();
+    lockInterface(true); // Bloqueia a UI novamente, mas agora para o modo de edição.
     const key = rowElement.closest('.editor-section').dataset.key;
     rowElement.classList.add('editing');
-    
+
     const createInput = (type, value, placeholder, style) => {
         const input = document.createElement('input');
         Object.assign(input, { type, value, placeholder, className: 'item-input', style });
@@ -465,7 +556,7 @@ function modoEdicao(item, rowElement, opts = {}) {
     const btnCancel = document.createElement('button');
     btnCancel.className = 'btn-action btn-cancel-edit danger';
     btnCancel.innerHTML = '<i class="fas fa-times"></i>';
-    
+
     btnSave.disabled = true; // Desabilitado por padrão
 
     const validations = [
@@ -476,29 +567,17 @@ function modoEdicao(item, rowElement, opts = {}) {
     setupValidation(validations, btnSave);
     setTimeout(() => btnSave.disabled = !validarCampos(validations), 0); // Validação inicial
 
+    // PADRONIZAÇÃO: Adiciona a confirmação ao botão Salvar.
     btnSave.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (btnSave.classList.contains('confirm-save')) {
+        if (btnSave.dataset.confirmed) {
             const valorArredondado = arredondarParaDuasCasas(parseCurrency(inpValor.value));
             salvarItem(key, item.id, { descricao: inpDesc.value, valor: valorArredondado }, rowElement);
-            lockInterface(false);
         } else {
-            const originalHTML = btnSave.innerHTML;
-            btnSave.classList.add('confirm-save');
-            btnSave.innerHTML = '<i class="fas fa-check"></i> Salvar?';
-
-            const revert = () => {
-                if (btnSave.classList.contains('confirm-save')) {
-                    btnSave.classList.remove('confirm-save');
-                    btnSave.innerHTML = originalHTML;
-                }
-                document.removeEventListener('click', revert);
-            };
-
-            setTimeout(revert, 3000);
-            document.addEventListener('click', revert, { once: true });
+            confirmAction(btnSave, 'Salvar?');
         }
     });
+
     btnCancel.addEventListener('click', () => {
         if (opts.isNew) rowElement.remove();
         else cancelarEdicao(item, rowElement, key);
@@ -509,6 +588,9 @@ function modoEdicao(item, rowElement, opts = {}) {
 
     rowElement.innerHTML = '';
     rowElement.append(inpDesc, inpValor, btnSave, btnCancel);
+    
+    // REVISÃO PROFUNDA: Reabilita explicitamente os botões recém-criados.
+    enableActionsWithin(rowElement);
     inpDesc.focus();
 }
 
@@ -542,7 +624,8 @@ function atualizarTotalDinamico(key) {
  * @param {object} [opts={}] - Opções, como {isNew: boolean}.
  */
 function modoEdicaoIndicador(item, rowElement, opts = {}) {
-    lockInterface(true);
+    clearAllConfirmations(); // Limpa o estado de confirmação (desbloqueia a UI)
+    lockInterface(true); // Bloqueia a UI novamente, mas agora para o modo de edição.
     const key = KEYS.INDICACAO;
     rowElement.classList.add('editing');
 
@@ -593,28 +676,17 @@ function modoEdicaoIndicador(item, rowElement, opts = {}) {
     setupValidation(validations, btnSave);
     setTimeout(() => btnSave.disabled = !validarCampos(validations), 0);
 
+    // PADRONIZAÇÃO: Adiciona a confirmação ao botão Salvar.
     btnSave.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (btnSave.classList.contains('confirm-save')) {
+        if (btnSave.dataset.confirmed) {
             const valorArredondado = arredondarParaDuasCasas(parseCurrency(inpValor.value));
             salvarItem(key, item.id, { nome: inpNome.value, telefone: inpTelefone.value, valor: valorArredondado }, rowElement);
-            lockInterface(false);
         } else {
-            const originalHTML = btnSave.innerHTML;
-            btnSave.classList.add('confirm-save');
-            btnSave.innerHTML = '<i class="fas fa-check"></i> Salvar?';
-
-            const revert = () => {
-                if (btnSave.classList.contains('confirm-save')) {
-                    btnSave.classList.remove('confirm-save');
-                    btnSave.innerHTML = originalHTML;
-                }
-                document.removeEventListener('click', revert);
-            };
-            setTimeout(revert, 3000);
-            document.addEventListener('click', revert, { once: true });
+            confirmAction(btnSave, 'Salvar?');
         }
     });
+
     btnCancel.addEventListener('click', () => {
         if (opts.isNew) rowElement.remove();
         else cancelarEdicao(item, rowElement, key);
@@ -625,6 +697,9 @@ function modoEdicaoIndicador(item, rowElement, opts = {}) {
 
     rowElement.innerHTML = '';
     rowElement.append(inpNome, inpTelefone, inpValor, btnSave, btnCancel);
+
+    // REVISÃO PROFUNDA: Reabilita explicitamente os botões recém-criados.
+    enableActionsWithin(rowElement);
     inpNome.focus();
 }
 
@@ -636,6 +711,15 @@ function modoEdicaoIndicador(item, rowElement, opts = {}) {
  * @param {HTMLDivElement} rowElement - O elemento da linha.
  */
 async function salvarItem(key, itemId, data, rowElement) {
+    // Validação final antes de enviar para a API
+    const valor = data.valor;
+    const descricao = data.descricao || data.nome; // para 'indicacao'
+    if (!descricao || String(descricao).trim().length < 3 || !valor || valor <= 0) {
+        alert('Dados inválidos. Verifique a descrição (mínimo 3 caracteres) e o valor (deve ser maior que zero).');
+        // Poderíamos também destacar os campos inválidos aqui se a linha de edição ainda estivesse visível.
+        return;
+    }
+
     mostrarLoading(true);
 
     if (!projectData.itens[key]) {
@@ -655,34 +739,23 @@ async function salvarItem(key, itemId, data, rowElement) {
 
     try {
         // CORREÇÃO: Gera a data local para evitar problemas de fuso horário.
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const today = `${year}-${month}-${day}`;
+        const today = new Date().toLocaleDateString('sv-SE'); // Formato YYYY-MM-DD
         console.log(`[salvarItem] Data local gerada (today): ${today}`);
 
-        const textoParaApi = projectData.itens[key].map(i => {
+        const itensParaApi = projectData.itens[key].map(i => {
             // Garante que a data seja sempre a data local correta,
             // corrigindo itens antigos que possam ter datas nulas ou em UTC.
-            const dataCorreta = i.date ? new Date(i.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today;
-            const dataFinal = i.id === itemId ? today : dataCorreta;
+            const dataFinal = i.id === itemId ? today : (i.date ? new Date(i.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today);
             
-            console.log(`[salvarItem] Processando item ID ${i.id}:`, {
-                originalDate: i.date,
-                correctedDate: dataCorreta,
-                finalDate: dataFinal
-            });
-
             if (key === KEYS.INDICACAO) {
-                return `${i.user || currentUserUsername} | ${dataFinal} | ${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
+                return { id: i.id, user: i.user || currentUserUsername, date: dataFinal, nome: i.nome || '', telefone: i.telefone || '', valor: i.valor };
             }
-            return `${i.user || currentUserUsername} | ${dataFinal} | ${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
-        }).join('\n');
-        console.log(`[salvarItem] Texto final para API (key: ${key}):\n`, textoParaApi);
+            return { id: i.id, user: i.user || currentUserUsername, date: dataFinal, descricao: i.descricao || '', valor: i.valor };
+        });
+        const payloadJson = JSON.stringify(itensParaApi);
 
         const fieldKey = API_KEYS[localKeyName.toUpperCase()];
-        await atualizarCampoUnico(projectId, fieldKey, textoParaApi, projectData.fieldIds);
+        await atualizarCampoUnico(projectId, fieldKey, payloadJson, projectData.fieldIds);
 
         const somaBruta = projectData.itens[key].reduce((acc, item) => acc + (item.valor || 0), 0);
         const total = arredondarParaDuasCasas(somaBruta);
@@ -721,28 +794,19 @@ async function removerItem(key, itemId) {
     projectData.itens[key] = projectData.itens[key].filter(i => i.id !== itemId);
 
     // CORREÇÃO: Gera a data local para evitar problemas de fuso horário.
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const today = `${year}-${month}-${day}`;
+    const today = new Date().toLocaleDateString('sv-SE'); // Formato YYYY-MM-DD
     console.log(`[removerItem] Data local gerada (today): ${today}`);
 
-    const textoParaApi = projectData.itens[key].map(i => {
-        const dataCorreta = i.date ? new Date(i.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today;
-
-        console.log(`[removerItem] Processando item ID ${i.id} para manter na lista:`, {
-            originalDate: i.date,
-            finalDate: dataCorreta
-        });
+    const itensParaApi = projectData.itens[key].map(i => {
+        const dataCorreta = i.date ? new Date(i.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today; // Mantém data existente se houver
 
         if (key === KEYS.INDICACAO) {
-            return `${i.user || currentUserUsername} | ${dataCorreta} | ${i.nome || ''} | ${i.telefone || ''} | ${formatarNumeroParaBR(i.valor)}`;
+            return { id: i.id, user: i.user || currentUserUsername, date: dataCorreta, nome: i.nome || '', telefone: i.telefone || '', valor: i.valor };
         } else {
-            return `${i.user || currentUserUsername} | ${dataCorreta} | ${i.descricao || ''} | ${formatarNumeroParaBR(i.valor)}`;
+            return { id: i.id, user: i.user || currentUserUsername, date: dataCorreta, descricao: i.descricao || '', valor: i.valor };
         }
-    }).join('\n');
-    console.log(`[removerItem] Texto final para API (key: ${key}):\n`, textoParaApi);
+    });
+    const payloadJson = JSON.stringify(itensParaApi);
 
     const localKeyName = Object.keys(KEYS).find(k => KEYS[k] === key);
     if (!localKeyName) return;
@@ -751,7 +815,7 @@ async function removerItem(key, itemId) {
 
     try {
         mostrarLoading(true);
-        await atualizarCampoUnico(projectId, fieldKey, textoParaApi, projectData.fieldIds);
+        await atualizarCampoUnico(projectId, fieldKey, payloadJson, projectData.fieldIds);
 
         const somaBruta = projectData.itens[key].reduce((acc, item) => acc + (item.valor || 0), 0);
         const total = arredondarParaDuasCasas(somaBruta);
@@ -917,22 +981,14 @@ function renderFuelGroup(section, type, item) {
     btnDelete.title = isOwner ? 'Remover item de combustível' : `Criado por ${item.user}`;
     btnDelete.innerHTML = '<i class="fas fa-trash-alt"></i>';
     btnDelete.disabled = !isOwner;
+
+    // PADRONIZAÇÃO: Usa a mesma lógica de listener das outras seções.
     btnDelete.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (btnDelete.classList.contains('confirm-delete')) {
+        if (btnDelete.dataset.confirmed) {
             removerItemCombustivel(type);
         } else {
-            const originalHTML = btnDelete.innerHTML;
-            btnDelete.classList.add('confirm-delete');
-            btnDelete.innerHTML = '<i class="fas fa-check"></i> Confirmar?';
-
-            const revert = () => {
-                btnDelete.classList.remove('confirm-delete');
-                btnDelete.innerHTML = originalHTML;
-                document.removeEventListener('click', revert);
-            };
-            setTimeout(revert, 3000);
-            document.addEventListener('click', revert, { once: true });
+            confirmAction(btnDelete, 'Remover?');
         }
     });
 
@@ -947,7 +1003,8 @@ function renderFuelGroup(section, type, item) {
  * @param {object | null} item - O objeto do item de combustível.
  */
 function modoEdicaoCombustivel(section, type, item) {
-    lockInterface(true);
+    clearAllConfirmations(); // Limpa o estado de confirmação (desbloqueia a UI)
+    lockInterface(true); // Bloqueia a UI novamente, mas agora para o modo de edição.
     section.classList.add('editing');
     section.innerHTML = `<h4>Combustível — ${type === 'venda' ? 'Venda' : 'Instalação'}</h4>`;
 
@@ -1006,6 +1063,9 @@ function modoEdicaoCombustivel(section, type, item) {
     actions.append(btnSave, btnCancel);
     section.appendChild(actions);
 
+    // REVISÃO PROFUNDA: Reabilita explicitamente os botões recém-criados.
+    enableActionsWithin(actions);
+
     const totalEl = $(fields.total.id);
     const validations = [
         { element: inputs.desc, type: 'description', get value() { return inputs.desc.value; } }
@@ -1047,81 +1107,60 @@ function modoEdicaoCombustivel(section, type, item) {
     Object.values(inputs).forEach(input => input.addEventListener('input', validateAndRecalculate));
     validateAndRecalculate();
 
-    btnCancel.addEventListener('click', () => {
+    btnCancel.addEventListener('click', (e) => {
         lockInterface(false);
         section.classList.remove('editing');
         renderFuelGroup(section, type, item);
         atualizarTotalCombustivel();
     });
 
+    // PADRONIZAÇÃO: Adiciona a confirmação ao botão Salvar.
     btnSave.addEventListener('click', (e) => {
         e.stopPropagation();
-
-        if (btnSave.classList.contains('confirm-save')) {
-            // Segundo clique: executa a ação de salvar
-            const newItemData = { finalidade: type === 'venda' ? 'Venda' : 'Instalação', descricao: inputs.desc.value };
+        if (btnSave.dataset.confirmed) {
+            const newItemData = { id: item?.id || Date.now(), finalidade: type === 'venda' ? 'Venda' : 'Instalação', descricao: inputs.desc.value };
             if (type === 'venda') {
                 newItemData.distancia = parseFloat(inputs.dist.value);
                 newItemData.valorLitro = parseCurrency(inputs.preco.value);
+                newItemData.custo = arredondarParaDuasCasas((newItemData.distancia * 2 / CONSUMO_FIXO) * newItemData.valorLitro);
             } else {
                 newItemData.litros = parseFloat(inputs.litros.value);
                 newItemData.valorLitro = parseCurrency(inputs.preco.value);
+                newItemData.custo = arredondarParaDuasCasas(newItemData.litros * newItemData.valorLitro);
             }
 
             const { vendaItem, instalacaoItem } = getCombustivelItens();
             const otherItem = type === 'venda' ? instalacaoItem : vendaItem;
+            if (otherItem && !otherItem.custo) {
+                otherItem.custo = otherItem.finalidade === 'Venda' 
+                    ? arredondarParaDuasCasas((otherItem.distancia * 2 / CONSUMO_FIXO) * otherItem.valorLitro)
+                    : arredondarParaDuasCasas(otherItem.litros * otherItem.valorLitro);
+            }
             const newCombustivelItens = [{...newItemData, user: currentUserUsername}];
             if (otherItem) newCombustivelItens.push(otherItem);
-            
-            // CORREÇÃO: Gera a data local para evitar problemas de fuso horário.
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const today = `${year}-${month}-${day}`;
-            console.log(`[modoEdicaoCombustivel] Data local gerada (today): ${today}`);
-
-            const textoParaApi = newCombustivelItens.map(item => {
-                const dataCorreta = item.date ? new Date(item.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today;
-                console.log(`[modoEdicaoCombustivel] Processando item de combustível:`, {
-                    finalidade: item.finalidade,
-                    originalDate: item.date,
-                    finalDate: dataCorreta
-                });
-
-                if (item.finalidade === 'Venda') return `${item.user || currentUserUsername} | ${dataCorreta} | ${item.finalidade} | ${item.descricao} | ${item.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR((item.distancia * 2 / CONSUMO_FIXO) * item.valorLitro)}`;
-                return `${item.user || currentUserUsername} | ${dataCorreta} | ${item.finalidade} | ${item.descricao} | ${item.litros} | 0 | ${formatarNumeroParaBR(item.valorLitro)} | ${formatarNumeroParaBR(item.litros * item.valorLitro)}`;
-            }).join('\n');
-            console.log(`[modoEdicaoCombustivel] Texto final para API (combustível):\n`, textoParaApi);
-
-            salvarDadosCombustivel(textoParaApi, newCombustivelItens);
-
+        
+            const today = new Date().toLocaleDateString('sv-SE');
+            const itensParaApi = newCombustivelItens.map(item => ({
+                ...item,
+                date: item.date ? new Date(item.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today,
+            }));
+            const payloadJson = JSON.stringify(itensParaApi);
+            salvarDadosCombustivel(payloadJson, newCombustivelItens);
         } else {
-            // Primeiro clique: arma o botão
-            const originalHTML = btnSave.innerHTML;
-            btnSave.classList.add('confirm-save');
-            btnSave.innerHTML = '<i class="fas fa-check"></i> Salvar?';
-
-            const revert = () => {
-                btnSave.classList.remove('confirm-save');
-                btnSave.innerHTML = originalHTML;
-                document.removeEventListener('click', revert);
-            };
-            setTimeout(revert, 3000);
-            document.addEventListener('click', revert, { once: true });
+            confirmAction(btnSave, 'Salvar?');
         }
     });
 }
 
 /**
  * Salva os dados de combustível (texto e total) na API.
- * @param {string} textoParaApi - A string formatada com todos os itens de combustível.
+ * @param {string} payloadJson - A string JSON com todos os itens de combustível.
  * @param {Array<object>} newCombustivelItens - A lista de objetos de itens de combustível.
  */
-async function salvarDadosCombustivel(textoParaApi, newCombustivelItens) {
+async function salvarDadosCombustivel(payloadJson, newCombustivelItens) {
         mostrarLoading(true);
         try {
-            await atualizarCampoUnico(projectId, API_KEYS.COMBUSTIVEL, textoParaApi, projectData.fieldIds);
+            await atualizarCampoUnico(projectId, API_KEYS.COMBUSTIVEL, payloadJson, projectData.fieldIds);
 
             const novoCustoVenda = newCombustivelItens.find(i => i.finalidade === 'Venda');
             const novoCustoInstalacao = newCombustivelItens.find(i => i.finalidade === 'Instalação');
@@ -1149,28 +1188,18 @@ async function removerItemCombustivel(typeToRemove) {
     const remainingItem = typeToRemove === 'venda' ? instalacaoItem : vendaItem;
 
     // CORREÇÃO: Gera a data local para evitar problemas de fuso horário.
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const today = `${year}-${month}-${day}`;
+    const today = new Date().toLocaleDateString('sv-SE'); // Formato YYYY-MM-DD
     console.log(`[removerItemCombustivel] Data local gerada (today): ${today}`);
 
-    const textoParaApi = remainingItem ? (() => {
-        const dataCorreta = remainingItem.date ? new Date(remainingItem.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today;
-        console.log(`[removerItemCombustivel] Processando item restante:`, {
-            finalidade: remainingItem.finalidade,
-            originalDate: remainingItem.date,
-            finalDate: dataCorreta
-        });
-        return remainingItem.finalidade === 'Venda' ?
-            `${remainingItem.user || currentUserUsername} | ${dataCorreta} | ${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.distancia} | ${CONSUMO_FIXO} | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR((remainingItem.distancia * 2 / CONSUMO_FIXO) * remainingItem.valorLitro)}` :
-            `${remainingItem.user || currentUserUsername} | ${dataCorreta} | ${remainingItem.finalidade} | ${remainingItem.descricao} | ${remainingItem.litros} | 0 | ${formatarNumeroParaBR(remainingItem.valorLitro)} | ${formatarNumeroParaBR(remainingItem.litros * remainingItem.valorLitro)}`;
-    })() : '';
-    console.log(`[removerItemCombustivel] Texto final para API (combustível):\n`, textoParaApi);
+    const newCombustivelItens = remainingItem ? [{
+        ...remainingItem,
+        date: remainingItem.date ? new Date(remainingItem.date.split('T')[0] + 'T12:00:00').toLocaleDateString('sv-SE') : today
+    }] : [];
 
-    const newCombustivelItens = remainingItem ? [remainingItem] : [];
-    await salvarDadosCombustivel(textoParaApi, newCombustivelItens);
+    const payloadJson = JSON.stringify(newCombustivelItens);
+    console.log(`[removerItemCombustivel] Payload JSON para API (combustível):\n`, payloadJson);
+
+    await salvarDadosCombustivel(payloadJson, newCombustivelItens);
 }
 
 /**
@@ -1231,7 +1260,6 @@ async function init() {
   $('editor-title').textContent = 'Custos';
   $('editor-subtitle').textContent = `#${projectData.id} - ${projectData.nomeCliente}`;
 
-  // Ativa a primeira aba
   document.querySelector('.tab-link')?.classList.add('active');
   document.querySelector('.editor-section')?.classList.add('active');
 }
