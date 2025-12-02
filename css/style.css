@@ -238,31 +238,31 @@ header.site-header h1 {
 }
 
 .kpi-cost .value {
-    color: var(--danger);
+    color: var(--danger); /* Vermelho */
 }
 
 .kpi-profit-good .value {
-    color: var(--success);
+    color: var(--success); /* Verde */
 }
 
 .kpi-profit-warning .value {
-    color: var(--accent);
+    color: var(--accent); /* Amarelo/Laranja */
 }
 
 .kpi-profit-bad .value {
-    color: var(--danger);
+    color: var(--danger); /* Vermelho */
 }
 
 .kpi-gdis .value {
-    color: #000;
+    color: #000; /* Preto */
 }
 
 .kpi-lucro-bruto .value {
-    color: #1d4ed8;
+    color: #1d4ed8; /* Azul Escuro */
 }
 
 .kpi-neutral .value {
-    color: #64748b;
+    color: #64748b; /* Cinza */
 }
 
 /* Abas (Tabs) */

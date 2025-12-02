@@ -67,6 +67,15 @@ function renderProjectDetails(dados) {
     $('info-data').textContent = formatarData(dados.dataCriacao);
 
     // KPIs Principais
+    // Limpa classes de cor antigas e aplica as novas
+    const setKpiClass = (elementId, className) => {
+        const kpiElement = $(elementId)?.parentElement;
+        if (kpiElement) {
+            kpiElement.className = 'kpi'; // Reseta para a classe base
+            kpiElement.classList.add(className);
+        }
+    };
+
     $('val-total-projeto').textContent = formatarMoeda(dados.valorProposta);
     $('val-kit').textContent = formatarMoeda(dados.valorKit);
     $('val-gdis').textContent = formatarMoeda(dados.valorProposta - dados.valorKit);
@@ -76,6 +85,15 @@ function renderProjectDetails(dados) {
     $('val-lucro-sem-imposto').textContent = formatarMoeda(lucroBruto);
     $('val-imposto').textContent = formatarMoeda(dados.imposto.valor);
     $('val-lucro-com-imposto').textContent = formatarMoeda(lucroBruto - dados.imposto.valor);
+
+    // Aplica as classes de cor aos KPIs
+    setKpiClass('val-total-projeto', 'kpi-neutral');
+    setKpiClass('val-kit', 'kpi-neutral');
+    setKpiClass('val-gdis', 'kpi-gdis');
+    setKpiClass('val-custos', 'kpi-cost');
+    setKpiClass('val-lucro-sem-imposto', 'kpi-lucro-bruto');
+    setKpiClass('val-imposto', 'kpi-cost');
+    setKpiClass('val-lucro-com-imposto', 'kpi-profit-good');
 
     // Resumo de Custos
     $('break-material').textContent = formatarMoeda(dados.totais.material);
