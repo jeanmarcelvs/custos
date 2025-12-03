@@ -127,7 +127,10 @@
                     </div>
                 </div>
                 <div id="documentos-projeto-list" class="document-list">
-                    <!-- Links dos documentos serão inseridos aqui via JS -->
+                    <!-- 
+                        O conteúdo da lista de documentos será gerado dinamicamente pelo projeto-controller.js.
+                        A estrutura será uma grade de miniaturas e ícones.
+                    -->
                 </div>
             </section>
 
@@ -173,6 +176,24 @@
                 <!-- Fim da Seção de Abas -->
             </section>
         </div>
+    </div>
+
+    <!-- ==========================================================================
+         LIGHTBOX (MODAL) PARA VISUALIZAÇÃO DE IMAGENS
+         ========================================================================== -->
+    <div id="image-lightbox" class="lightbox oculto">
+        <div id="lightbox-overlay" class="lightbox-overlay"></div>
+        <div class="lightbox-main-area">
+            <div class="lightbox-image-wrapper">
+                <img id="lightbox-image" src="" alt="Visualização de imagem">
+            </div>
+            <div class="lightbox-controls">
+                <a id="lightbox-download" href="#" download class="btn">Baixar</a>
+            </div>
+        </div>
+        <button id="lightbox-close" class="lightbox-button close" title="Fechar (Esc)">&times;</button>
+        <button id="lightbox-prev" class="lightbox-button prev" title="Anterior (←)">&#10094;</button>
+        <button id="lightbox-next" class="lightbox-button next" title="Próxima (→)">&#10095;</button>
     </div>
     <script type="module" src="./js/projeto-controller.js"></script>
 </body>
