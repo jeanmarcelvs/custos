@@ -128,6 +128,31 @@ function createSectionHTML(key, listId) {
 }
 
 /**
+ * Extrai o nome real e amigável de um arquivo de uma URL que contém um prefixo gerado pelo sistema.
+ * O padrão esperado da URL é: PREFIXO_VARIAVEL#-NOME_REAL_DO_ARQUIVO.EXTENSAO
+ * Ex: 2025-12-03_14-10-50_82r#-UNIFILAR-Nilceia.pdf -> UNIFILAR-Nilceia.pdf
+ *
+ * @param {string} url - A URL completa do arquivo.
+ * @returns {string} O nome amigável do arquivo, ou a URL original como fallback.
+ */
+function extrairNomeRobusto(url) {
+    // 1. Decodifica a URL para tratar caracteres como 'ç', espaços (%20), etc.
+    const urlDecodificada = decodeURIComponent(url);
+
+    // 2. Remove o caminho, se houver, pegando apenas o nome do arquivo.
+    const nomeComPrefixo = urlDecodificada.split('/').pop();
+
+    // 3. Define o delimitador que separa o prefixo do nome real do arquivo.
+    const delimitador = '#-';
+
+    // 4. Divide a string no delimitador.
+    const partes = nomeComPrefixo.split(delimitador);
+
+    // 5. Se o delimitador foi encontrado, retorna a segunda parte (o nome real).
+    return (partes.length > 1) ? partes[1] : nomeComPrefixo;
+}
+
+/**
  * Renderiza as listas de comprovantes para todas as seções.
  */
 function renderizarComprovantes() {
@@ -155,7 +180,8 @@ function renderizarComprovantes() {
                 urls.forEach(url => {
                     const link = document.createElement('a');
                     link.href = url;
-                    link.textContent = url.substring(url.lastIndexOf('/') + 1);
+                    // Usa a função para extrair o nome amigável do arquivo.
+                    link.textContent = extrairNomeRobusto(url);
                     link.target = '_blank';
                     const listItem = document.createElement('li');
                     listItem.appendChild(link);

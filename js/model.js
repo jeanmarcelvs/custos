@@ -163,6 +163,7 @@ const ALL_FIELD_IDS = {
     '[cap_valor_indicacao]': 44997, // CORREÇÃO: Adicionando a chave do valor da indicação ao mapa de IDs.
     '[cap_comprovante_indicacao]': 45000,
     '[cap_comprovantes_alugueis]': 44989,
+    '[cap_doc_projeto]': 5569, // Adicionado para documentos do projeto
     '[cap_alimentacao]': 44988, // Este é o campo de TOTAL de alimentação
     '[cap_alimentacao_itens]': 45029, // CORREÇÃO: Adicionando a chave da lista de itens de alimentação ao mapa de IDs.
     '[cap_comprovantes_alimentacao]': 44990,
@@ -369,7 +370,8 @@ export const KEYS = {
     COMPROVANTES_ALUGUEIS: '[cap_comprovantes_alugueis]',
     COMPROVANTES_ALIMENTACAO: '[cap_comprovantes_alimentacao]',
     COMPROVANTES_COMBUSTIVEL: '[cap_comprovantes_combust]',
-    COMPROVANTE_INDICACAO: '[cap_comprovante_indicacao]'
+    COMPROVANTE_INDICACAO: '[cap_comprovante_indicacao]',
+    DOC_PROJETO: '[cap_doc_projeto]' // Adicionado para documentos do projeto
 };
 
 export async function atualizarCampoUnico(projectId, fieldKey, novoConteudo, fieldIds) {

@@ -106,9 +106,76 @@ function renderProjectDetails(dados) {
     $('break-combustivel').textContent = formatarMoeda(dados.totais.combustivel);
     $('break-outras').textContent = formatarMoeda(dados.totais.outras);
 
+    // Renderiza a seção de documentos do projeto
+    renderProjectDocuments(dados);
+
     // Alterna a visibilidade dos containers
     projectSearchContainer.classList.add('oculto');
     projectDetailsContainer.classList.remove('oculto');
+}
+
+/**
+ * Extrai o nome real e amigável de um arquivo de uma URL que contém um prefixo gerado pelo sistema.
+ * O padrão esperado da URL é: PREFIXO_VARIAVEL#-NOME_REAL_DO_ARQUIVO.EXTENSAO
+ * Ex: 2025-12-03_14-10-50_82r#-UNIFILAR-Nilceia.pdf -> UNIFILAR-Nilceia.pdf
+ *
+ * @param {string} url - A URL completa do arquivo.
+ * @returns {string} O nome amigável do arquivo, ou a URL original como fallback.
+ */
+function extrairNomeRobusto(url) {
+    // 1. Decodifica a URL para tratar caracteres como 'ç', espaços (%20), etc.
+    const urlDecodificada = decodeURIComponent(url);
+
+    // 2. Remove o caminho, se houver, pegando apenas o nome do arquivo.
+    // Ex: "https://sc-erp.s3.amazonaws.com/path/to/file.pdf" -> "file.pdf"
+    const nomeComPrefixo = urlDecodificada.split('/').pop();
+
+    // 3. Define o delimitador que separa o prefixo do nome real do arquivo.
+    const delimitador = '#-';
+
+    // 4. Divide a string no delimitador.
+    const partes = nomeComPrefixo.split(delimitador);
+
+    // 5. Se o delimitador foi encontrado, retorna a segunda parte (o nome real).
+    //    Caso contrário, retorna o nome do arquivo extraído da URL como fallback.
+    return (partes.length > 1) ? partes[1] : nomeComPrefixo;
+}
+
+/**
+ * Renderiza a lista de documentos do projeto a partir de um campo customizado.
+ * @param {object} dados - O objeto do projeto processado.
+ */
+function renderProjectDocuments(dados) {
+    const container = $('documentos-projeto-container');
+    const listElement = $('documentos-projeto-list');
+    if (!container || !listElement) return;
+
+    // Limpa a lista e oculta o container por padrão
+    listElement.innerHTML = '';
+    container.classList.add('oculto');
+
+    // Obtém a string bruta de URLs do campo customizado '[cap_doc_projeto]'
+    const docUrlsString = dados.rawFields['[cap_doc_projeto]'];
+
+    if (docUrlsString) {
+        // Divide a string por nova linha para obter URLs individuais
+        const urls = docUrlsString.split('\n').map(url => url.trim()).filter(url => url !== '');
+
+        if (urls.length > 0) {
+            urls.forEach(url => {
+                const item = document.createElement('a');
+                item.href = url;
+                item.target = '_blank'; // Abre em nova aba
+                item.rel = 'noopener noreferrer';
+                item.className = 'document-item'; // Para estilização futura
+                // Usa a nova função para extrair o nome amigável do arquivo
+                const filename = extrairNomeRobusto(url);
+                item.innerHTML = `<i class="fas fa-file-alt"></i> <span>${filename || 'Documento'}</span>`;
+                listElement.appendChild(item);
+            });
+            container.classList.remove('oculto'); // Mostra o container se houver documentos
+        }
+    }
 }
 
 /**
@@ -203,7 +270,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     btnEditPage.addEventListener('click', () => {
-        if (projetoAtual) window.location.href = `editar-projeto.html?projectId=${projetoAtual.id}`;
+        if (projetoAtual) {
+            // Armazena os dados do projeto na sessão para evitar uma nova busca na página de edição
+            sessionStorage.setItem('projetoParaEdicao', JSON.stringify(projetoAtual));
+            window.location.href = `editar-projeto.html?projectId=${projetoAtual.id}`;
+        }
     });
 
     checkSessionAndInitialize();
