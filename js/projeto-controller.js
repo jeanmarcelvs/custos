@@ -73,6 +73,11 @@ function renderProjectDetails(dados) {
         if (kpiElement) {
             kpiElement.className = 'kpi'; // Reseta para a classe base
             kpiElement.classList.add(className);
+            // Aplica a cor cinza diretamente se a classe for 'kpi-neutral'
+            if (className === 'kpi-neutral') {
+                const valueElement = kpiElement.querySelector('.value');
+                if (valueElement) valueElement.style.color = '#9fa6b2'; // Cinza claro para de-emphasize
+            }
         }
     };
 

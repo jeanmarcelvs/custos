@@ -116,6 +116,48 @@
                     </div>
                 </div>
             </section>
+
+            <!-- ==========================================================================
+                 SEÇÃO DE EDIÇÃO DE CUSTOS (INICIALMENTE OCULTA)
+                 ========================================================================== -->
+            <section id="edit-costs-section" class="card oculto">
+                <div class="edit-header">
+                    <h2>Editar Custos</h2>
+                    <button id="btn-close-edit" class="btn-ghost" title="Fechar edição">&times; Fechar</button>
+                </div>
+
+                <!-- Início da Seção de Abas para Edição de Custos -->
+                <div class="tab-container">
+                    <!-- Estes são os "botões" das abas -->
+                    <div class="tab-header">
+                        <button class="tab-link active" data-tab="tab-material">Material</button>
+                        <button class="tab-link" data-tab="tab-mo">M.O.</button>
+                        <button class="tab-link" data-tab="tab-combustivel">Combustível</button>
+                        <button class="tab-link" data-tab="tab-outros">Outros</button>
+                    </div>
+
+                    <!-- Este é o conteúdo que muda conforme a aba selecionada -->
+                    <div class="tab-content-wrapper">
+                        <div id="tab-material" class="tab-content active">
+                            <h3>Custos de Material</h3>
+                            <p>Formulário para editar custos de material...</p>
+                        </div>
+                        <div id="tab-mo" class="tab-content">
+                            <h3>Custos de Mão de Obra</h3>
+                            <p>Formulário para editar diárias e mão de obra...</p>
+                        </div>
+                        <div id="tab-combustivel" class="tab-content">
+                            <h3>Custos de Combustível</h3>
+                            <p>Formulário para editar custos de combustível...</p>
+                        </div>
+                        <div id="tab-outros" class="tab-content">
+                            <h3>Outros Custos</h3>
+                            <p>Formulário para editar outros custos...</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Fim da Seção de Abas -->
+            </section>
         </div>
     </div>
     <script type="module" src="./js/projeto-controller.js"></script>

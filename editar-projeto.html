@@ -38,7 +38,36 @@
                 </div>
             </header>
             <div class="editor-content">
-                <div class="editor-sections" id="editor-sections"></div>
+                <!-- ==========================================================================
+                     INÍCIO DA SEÇÃO DE ABAS (EDITOR-SECTIONS)
+                     ========================================================================== -->
+                <div class="tab-container" id="editor-sections">
+                    <!-- Estes são os "botões" das abas -->
+                    <div class="tab-header-wrapper">
+                        <div class="tab-header mobile-scroll">
+                            <button class="tab-link active" data-tab="tab-material">Material</button>
+                            <button class="tab-link" data-tab="tab-mo">M.O.</button>
+                            <button class="tab-link" data-tab="tab-combustivel">Combustível</button>
+                            <button class="tab-link" data-tab="tab-outros">Outros</button>
+                        </div>
+                    </div>
+
+                    <!-- Este é o conteúdo que muda conforme a aba selecionada -->
+                    <div class="tab-content-container">
+                        <div id="tab-material" class="tab-content active">
+                            <!-- Formulários de edição para Material irão aqui -->
+                        </div>
+                        <div id="tab-mo" class="tab-content">
+                            <!-- Formulários de edição para Mão de Obra irão aqui -->
+                        </div>
+                        <div id="tab-combustivel" class="tab-content">
+                            <!-- Formulários de edição para Combustível irão aqui -->
+                        </div>
+                        <div id="tab-outros" class="tab-content">
+                            <!-- Formulários de edição para Outros Custos irão aqui -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
