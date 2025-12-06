@@ -919,6 +919,16 @@ textarea::placeholder,
         margin-left: 0;
         justify-content: flex-end;
     }
+
+    /* Ajuste para login e pesquisa de projeto em telas pequenas */
+    .login-wrapper,
+    .center-card {
+        align-items: flex-start; /* Alinha o card no topo */
+        padding-top: 4rem;       /* Adiciona uma margem do topo */
+    }
+    .login-card {
+        width: 100%;
+    }
 }
 
 @media (max-width: 480px) {
