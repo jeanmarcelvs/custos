@@ -789,12 +789,16 @@ async function salvarItem(key, itemId, data, rowElement) {
         if (totalFieldKey) {
             await atualizarCampoUnico(projectId, totalFieldKey, total.toString(), projectData.fieldIds);
         }
+
+        // On success, refresh the UI to show the new state from the server.
+        await refreshDataAndUI();
+
     } catch (error) {
         console.error("Falha ao salvar item:", error);
         alert("Ocorreu um erro ao salvar. Tente novamente.");
+        // On failure, just hide the loading indicator. The user's edit remains on screen.
+        mostrarLoading(false);
     }
-
-    await refreshDataAndUI();
 }
 
 /**
