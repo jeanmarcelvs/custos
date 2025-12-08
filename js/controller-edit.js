@@ -792,11 +792,13 @@ async function salvarItem(key, itemId, data, rowElement) {
 
         // On success, refresh the UI to show the new state from the server.
         await refreshDataAndUI();
+        lockInterface(false); // Desbloqueia a UI após o sucesso
 
     } catch (error) {
         console.error("Falha ao salvar item:", error);
         alert("Ocorreu um erro ao salvar. Tente novamente.");
         // On failure, just hide the loading indicator. The user's edit remains on screen.
+        lockInterface(false); // Também desbloqueia em caso de falha
         mostrarLoading(false);
     }
 }
@@ -858,6 +860,7 @@ async function removerItem(key, itemId) {
         alert("Ocorreu um erro ao remover o item. Tente novamente.");
     } finally {
         await refreshDataAndUI();
+        // A UI é desbloqueada implicitamente pelo refresh que remove a classe 'editing'
     }
 }
 
@@ -1202,9 +1205,12 @@ async function salvarDadosCombustivel(payloadJson, newCombustivelItens) {
             await atualizarCampoUnico(projectId, API_KEYS.TOTAL_COMBUSTIVEL, totalCombustivel.toString(), projectData.fieldIds);
 
             await refreshDataAndUI();
-            lockInterface(false);
 
+        } catch (error) {
+            console.error("Falha ao salvar dados de combustível:", error);
+            alert("Ocorreu um erro ao salvar os dados de combustível. Tente novamente.");
         } finally {
+            lockInterface(false); // Desbloqueia a UI em caso de sucesso ou falha
             mostrarLoading(false);
         }
 }
