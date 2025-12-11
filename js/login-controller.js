@@ -74,28 +74,31 @@ function init() {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  showRegisterLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    toggleViews(true);
-    registerForm.classList.remove('oculto');
-    verifyLinkView.classList.add('oculto');
-  });
+  // Adiciona listeners para a funcionalidade de registro apenas se os elementos existirem
+  if (showRegisterLink && showLoginLink && registerForm) {
+    showRegisterLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleViews(true);
+      registerForm.classList.remove('oculto');
+      verifyLinkView.classList.add('oculto');
+    });
 
-  showLoginLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    toggleViews(false);
-  });
+    showLoginLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleViews(false);
+    });
 
-  registerForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const email = $('register-email').value;
-    const password = $('register-password').value;
-    if (!email || !password) return;
-    if (password.length < 8) {
-      return alert('A senha deve ter no mínimo 8 caracteres.');
-    }
-    handleApiCall(createUser, redirectToVerification, email, password);
-  });
+    registerForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = $('register-email').value;
+      const password = $('register-password').value;
+      if (!email || !password) return;
+      if (password.length < 8) {
+        return alert('A senha deve ter no mínimo 8 caracteres.');
+      }
+      handleApiCall(createUser, redirectToVerification, email, password);
+    });
+  }
 
   loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
