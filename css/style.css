@@ -265,6 +265,12 @@ header.site-header h1 {
     color: #64748b; /* Cinza */
 }
 
+/* Nova classe para fundo neutro com transparência */
+.kpi-neutral-bg {
+    /* Usa a cor 'muted' com 20% de opacidade */
+    background: rgba(113, 128, 150, 0.2); 
+}
+
 /* Abas (Tabs) */
 .tabs-nav {
     display: flex;

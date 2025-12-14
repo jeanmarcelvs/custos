@@ -86,12 +86,10 @@ function renderProjectDetails(dados) {
     const setKpiClass = (elementId, className) => {
         const kpiElement = $(elementId)?.parentElement;
         if (kpiElement) {
-            kpiElement.className = 'kpi'; // Reseta para a classe base
+            kpiElement.className = 'kpi'; // Reseta para a classe base, removendo cores antigas
             kpiElement.classList.add(className);
-            // Aplica a cor cinza diretamente se a classe for 'kpi-neutral'
             if (className === 'kpi-neutral') {
-                const valueElement = kpiElement.querySelector('.value');
-                if (valueElement) valueElement.style.color = '#9fa6b2'; // Cinza claro para de-emphasize
+                kpiElement.classList.add('kpi-neutral-bg'); // Adiciona a classe para o fundo transparente
             }
         }
     };
