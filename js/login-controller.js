@@ -54,6 +54,30 @@ async function handleApiCall(apiFunction, onSuccess, ...args) {
   }
 }
 
+/**
+ * Configura a funcionalidade de mostrar/ocultar senha para um campo.
+ * @param {string} inputId - O ID do campo de senha.
+ * @param {string} toggleId - O ID do ícone de toggle.
+ */
+function setupPasswordToggle(inputId, toggleId) {
+  const passwordInput = $(inputId);
+  const toggleIcon = $(toggleId);
+
+  if (passwordInput && toggleIcon) {
+    toggleIcon.addEventListener('click', () => {
+      // Alterna o tipo do input
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+
+      // Se o campo se tornou texto (senha visível), o ícone deve ser 'fa-eye' (aberto).
+      // Se o campo se tornou senha (senha oculta), o ícone deve ser 'fa-eye-slash' (cortado).
+      toggleIcon.classList.toggle('fa-eye', isPassword);
+      toggleIcon.classList.toggle('fa-eye-slash', !isPassword);
+      toggleIcon.title = isPassword ? 'Ocultar senha' : 'Mostrar senha';
+    });
+  }
+}
+
 // --- Event Listeners ---
 
 /**
@@ -79,8 +103,6 @@ function init() {
     showRegisterLink.addEventListener('click', (e) => {
       e.preventDefault();
       toggleViews(true);
-      registerForm.classList.remove('oculto');
-      verifyLinkView.classList.add('oculto');
     });
 
     showLoginLink.addEventListener('click', (e) => {
@@ -113,6 +135,10 @@ function init() {
       window.location.href = 'projeto.html'; // Redireciona para a página de projetos
     }, email, password);
   });
+
+  // Inicializa a funcionalidade de mostrar/ocultar senha
+  setupPasswordToggle('login-password', 'toggle-login-password');
+  setupPasswordToggle('register-password', 'toggle-register-password');
 }
 
 // Inicia a aplicação

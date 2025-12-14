@@ -7,6 +7,30 @@
     <title>GDIS - Acesso</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="./css/style.css">
+    <!-- Adiciona Font Awesome para os ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Estilos para o ícone de mostrar/ocultar senha */
+        .password-wrapper { 
+            position: relative;
+        }
+        
+        /* Ajusta o padding do input para não ficar embaixo do ícone */
+        .password-wrapper input[type="password"],
+        .password-wrapper input[type="text"] {
+            padding-right: 45px; /* Espaço para o ícone */
+        }
+
+        .password-wrapper .fa-eye,
+        .password-wrapper .fa-eye-slash {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            right: 15px;
+            cursor: pointer;
+            color: var(--muted);
+        }
+    </style>
 </head>
 
 <body>
@@ -17,34 +41,37 @@
                 <form id="login-form">
                     <label for="login-email">Email</label>
                     <input type="email" id="login-email" placeholder="seu@email.com" required>
-                    <label for="login-password">Senha</label>
-                    <input type="password" id="login-password" placeholder="Sua senha" required>
+                    <label for="login-password">Senha</label> 
+                    <div class="password-wrapper">
+                        <input type="password" id="login-password" placeholder="Sua senha" required>
+                        <i class="fa-solid fa-eye-slash" id="toggle-login-password" title="Mostrar senha"></i>
+                    </div>
                     <button type="submit" class="btn w-full">Entrar</button>
                 </form>
             </div>
-            <!-- <div class="card-footer"><p class="text-center">Não tem uma conta? <a href="#" id="show-register">Cadastre-se</a></p></div> -->
+            <div class="card-footer"><p class="text-center">Não tem uma conta? <a href="#" id="show-register">Cadastre-se</a></p></div>
         </div>
         <!-- 
             Seção de cadastro de usuário.
-            Oculta temporariamente para desativar novos registros.
         -->
-        <!-- <div id="register-view" class="login-card oculto">
+        <div id="register-view" class="login-card oculto">
                 <h1 class="login-title">Criar Conta</h1>
-                <form id="register-form">
-                    <label for="register-email">Email</label>
-                    <input type="email" id="register-email" placeholder="seu@email.com" required>
-                    <label for="register-password">Senha</label>
-                    <input type="password" id="register-password" placeholder="Mínimo 8 caracteres" required>
-                    <button type="submit" class="btn w-full">Criar Conta</button>
-                </form>
-                <div id="verify-link-view" class="oculto">
-                    <p>✅ **Conta criada!**</p>
-                    <p>Para ativar sua conta, clique no link abaixo. Este link é válido por 1 hora.</p>
-                    <a href="#" id="verify-link" target="_blank" rel="noopener noreferrer">Verificar minha conta</a>
-                    <p class="small mt-2">Após verificar, você já pode voltar e fazer o login.</p>
-                </div>
-                <div class="card-footer"><p class="text-center">Já tem uma conta? <a href="#" id="show-login">Faça login</a></p></div>
-            </div> -->
+                <div class="form-content">
+                    <form id="register-form">
+                        <label for="register-email">Email</label>
+                        <input type="email" id="register-email" placeholder="seu@email.com" required>
+                        <label for="register-password">Senha</label> 
+                        <div class="password-wrapper">
+                            <input type="password" id="register-password" placeholder="Mínimo 8 caracteres" required>
+                            <i class="fa-solid fa-eye-slash" id="toggle-register-password" title="Mostrar senha"></i>
+                        </div>
+                        <button type="submit" class="btn w-full">Criar Conta</button>
+                    </form>
+                    <!-- Esta view não é mais usada, pois o redirecionamento é feito via JS -->
+                    <div id="verify-link-view" class="oculto"></div>
+            </div>
+            <div class="card-footer"><p class="text-center">Já tem uma conta? <a href="#" id="show-login">Faça login</a></p></div>
+        </div>
     </div>
     <script type="module" src="./js/login-controller.js"></script>
 </body>

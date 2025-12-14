@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <style>
+        /* Estilo simples para ocultar elementos */
+        .oculto {
+            display: none;
+        }
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f2f5;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        input {
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            font-size: 1rem;
+        }
+        button {
+            padding: 0.75rem;
+            font-size: 1rem;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        p {
+            text-align: center;
+            margin-top: 1rem;
+        }
+        a {
+            color: #007bff;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Tela de Login -->
+        <div id="login-view">
+            <h2>Login</h2>
+            <form id="login-form">
+                <input type="email" id="login-email" placeholder="E-mail" required>
+                <input type="password" id="login-password" placeholder="Senha" required>
+                <button type="submit">Entrar</button>
+            </form>
+            <p>Não tem uma conta? <a id="show-register">Cadastre-se</a></p>
+        </div>
+
+        <!-- Tela de Registro -->
+        <div id="register-view" class="oculto">
+            <h2>Criar Conta</h2>
+            <form id="register-form">
+                <input type="email" id="register-email" placeholder="E-mail" required>
+                <input type="password" id="register-password" placeholder="Senha (mínimo 8 caracteres)" required>
+                <button type="submit">Criar Conta</button>
+            </form>
+            <p>Já tem uma conta? <a id="show-login">Faça o login</a></p>
+        </div>
+    </div>
+
+    <!-- 
+      Importa o seu script como módulo. 
+      Certifique-se de que o caminho para o arquivo JS está correto.
+    -->
+    <script type="module" src="./js/login-controller.js"></script>
+</body>
+</html>
