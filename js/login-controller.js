@@ -84,6 +84,11 @@ function setupPasswordToggle(inputId, toggleId) {
  * Inicializa todos os event listeners da página de login/registro.
  */
 function init() {
+  // Limpa qualquer sessão existente ao carregar a tela de login para garantir um estado limpo
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('username');
+  sessionStorage.clear();
+
   // Verifica se a URL contém o parâmetro de verificação bem-sucedida
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('verified') === 'true') {
@@ -127,11 +132,7 @@ function init() {
     const email = $('login-email').value;
     const password = $('login-password').value;
     handleApiCall(login, (data) => {
-      // Salva o token de autenticação
-      localStorage.setItem('authToken', data.token);
-      // Salva o nome de usuário (parte antes do @) para exibição na UI
-      const username = email.split('@')[0];
-      localStorage.setItem('username', username);
+      // O token e o usuário já foram salvos corretamente pelo api.js
       window.location.href = 'projeto.html'; // Redireciona para a página de projetos
     }, email, password);
   });

@@ -1254,8 +1254,9 @@ async function init() {
   
   // Pega o nome de usuário salvo no localStorage durante o login
   currentUserUsername = localStorage.getItem('username');
-  if (currentUserUsername) {
-    $('username-edit').textContent = currentUserUsername;
+  const elUsernameEdit = $('username-edit');
+  if (currentUserUsername && elUsernameEdit) {
+    elUsernameEdit.textContent = currentUserUsername;
   }
 
   try {
@@ -1263,6 +1264,12 @@ async function init() {
     const userData = await getMe();
     if (!userData.sucesso || !userData.user) {
       throw new Error('Token inválido ou expirado.');
+    }
+
+    // Atualiza o currentUserUsername com a versão reduzida do email (fonte da verdade)
+    if (userData.user.email) {
+      currentUserUsername = userData.user.email.split('@')[0];
+      if (elUsernameEdit) elUsernameEdit.textContent = currentUserUsername;
     }
   } catch (authError) {
     alert('Sua sessão expirou. Por favor, faça login novamente.');

@@ -1,5 +1,86 @@
-import { getProject, getProjectProposal, getCustomFields, postCustomField } from './api.js';
+import { getProject, getProjectProposal, getCustomFields, postCustomField, getMe } from './api.js';
 import { somaListaValores, parseLinhaSeparador, converterStringParaNumero } from './utils.js';
+
+/**
+ * ============================================================
+ * MAPA DE CHAVES DE CAMPOS (PRECISA VIR PRIMEIRO)
+ * ============================================================
+ * Mapeamento de chaves locais para as chaves de campo da API SolarMarket.
+ * Usado para consistência em todo o aplicativo.
+ */
+export const KEYS = {
+    // Chaves para campos de texto com listas de itens
+    MATERIAL: '[cap_custos]',
+    DIARIAS: '[cap_diarias]',
+    DESPESAS_PROJETO: '[cap_despesas_projeto]',
+    DESPESAS_FIXAS: '[cap_despesas_fixas_gerais]',
+    FERRAMENTA: '[cap_ferram_escada_descricao]',
+    INDICACAO: '[cap_dados_indicador]',
+    COMBUSTIVEL: '[cap_quilometragem_percorrida]',
+    ALIMENTACAO: '[cap_alimentacao_itens]',
+
+    // Chaves para valores monetários principais
+    VALOR_TOTAL: '[cap_valor_total]',
+    VALOR_KIT: '[cap_valor_kit_fotovoltaico]',
+
+    // Chaves para campos de totais calculados
+    TOTAL_MATERIAL: '[cap_total_custos_material]',
+    TOTAL_DIARIAS: '[cap_total_diarias]',
+    TOTAL_DESPESAS_PROJETO: '[cap_total_despesas_projeto]',
+    TOTAL_DESPESAS_FIXAS: '[cap_total_despesas_fixas_gerais]',
+    TOTAL_FERRAMENTA: '[cap_aluguel_ferramentas]',
+    TOTAL_COMBUSTIVEL: '[cap_combustivel]',
+    TOTAL_ALIMENTACAO: '[cap_alimentacao]',
+    TOTAL_INDICACAO: '[cap_valor_indicacao]',
+
+    // Chaves para campos de comprovantes (arquivos)
+    COMPROVANTES_DIARIAS: '[cap_comprovantes_diarias]',
+    COMPROVANTES_MATERIAL: '[cap_comprovantes]', 
+    COMPROVANTES_DESP_PROJETO: '[cap_comprovantes_desp_projeto]',
+    COMPROVANTES_DESP_FIXAS: '[cap_comprovantes_desp_fixas_gerais]',
+    COMPROVANTES_ALUGUEIS: '[cap_comprovantes_alugueis]',
+    COMPROVANTES_ALIMENTACAO: '[cap_comprovantes_alimentacao]',
+    COMPROVANTES_COMBUSTIVEL: '[cap_comprovantes_combust]',
+    COMPROVANTE_INDICACAO: '[cap_comprovante_indicacao]',
+    DOC_PROJETO: '[cap_doc_projeto]' // Adicionado para documentos do projeto
+};
+
+/**
+ * ============================================================
+ * MAPA DE IDS DE CAMPOS
+ * ============================================================
+ * Mapa estático com todos os IDs de campos customizados conhecidos.
+ */
+const ALL_FIELD_IDS = {
+    '[cap_nome_indicador]': 10073,
+    '[cap_indicacao]': 12019,
+    '[cap_rg_cliente]': 12644,
+    '[cap_combustivel]': 44994,
+    '[cap_comprovantes_combust]': 44995,
+    '[cap_ferram_escada_descricao]': 44991, // Este é o campo de descrição de Ferramentas
+    '[cap_dados_indicador]': 44996,
+    '[cap_custos]': 44974, // Chave antiga para Material
+    '[cap_comprovantes]': 44972,
+    '[cap_total_custos]': 44999,
+    '[cap_total_custos_material]': 45005,
+    '[cap_aluguel_ferramentas]': 44981, // Este é o campo monetário de Ferramentas
+    '[cap_quilometragem_percorrida]': 45008,
+    '[cap_despesas_projeto]': 45006, // Chave para a lista de itens
+    '[cap_total_despesas_projeto]': 45004,
+    '[cap_despesas_fixas_gerais]': 45007,
+    '[cap_total_despesas_fixas_gerais]': 45002,
+    '[cap_diarias]': 45013, // CORREÇÃO: Restaurando a chave para o campo de texto de diárias.
+    '[cap_comprovantes_desp_fixas_gerais]': 45010,
+    '[cap_comprovantes_desp_projeto]': 45009,
+    '[cap_total_diarias]': 45014,
+    '[cap_valor_indicacao]': 44997, // CORREÇÃO: Adicionando a chave do valor da indicação ao mapa de IDs.
+    '[cap_comprovante_indicacao]': 45000,
+    '[cap_comprovantes_alugueis]': 44989,
+    '[cap_doc_projeto]': 5569, // Adicionado para documentos do projeto
+    '[cap_alimentacao]': 44988, // Este é o campo de TOTAL de alimentação
+    '[cap_alimentacao_itens]': 45029, // CORREÇÃO: Adicionando a chave da lista de itens de alimentação ao mapa de IDs.
+    '[cap_comprovantes_alimentacao]': 44990,
+};
 
 /**
  * Parseia um campo de texto multilinhas em um array de objetos.
@@ -137,38 +218,6 @@ function normalizarValorMoney(valor) {
     return isNaN(n) ? 0 : n;
 }
 
-/** Mapa estático com todos os IDs de campos customizados conhecidos. */
-const ALL_FIELD_IDS = {
-    '[cap_nome_indicador]': 10073,
-    '[cap_indicacao]': 12019,
-    '[cap_rg_cliente]': 12644,
-    '[cap_combustivel]': 44994,
-    '[cap_comprovantes_combust]': 44995,
-    '[cap_ferram_escada_descricao]': 44991, // Este é o campo de descrição de Ferramentas
-    '[cap_dados_indicador]': 44996,
-    '[cap_custos]': 44974, // Chave antiga para Material
-    '[cap_comprovantes]': 44972,
-    '[cap_total_custos]': 44999,
-    '[cap_total_custos_material]': 45005,
-    '[cap_aluguel_ferramentas]': 44981, // Este é o campo monetário de Ferramentas
-    '[cap_quilometragem_percorrida]': 45008,
-    '[cap_despesas_projeto]': 45006, // Chave para a lista de itens
-    '[cap_total_despesas_projeto]': 45004,
-    '[cap_despesas_fixas_gerais]': 45007,
-    '[cap_total_despesas_fixas_gerais]': 45002,
-    '[cap_diarias]': 45013, // CORREÇÃO: Restaurando a chave para o campo de texto de diárias.
-    '[cap_comprovantes_desp_fixas_gerais]': 45010,
-    '[cap_comprovantes_desp_projeto]': 45009,
-    '[cap_total_diarias]': 45014,
-    '[cap_valor_indicacao]': 44997, // CORREÇÃO: Adicionando a chave do valor da indicação ao mapa de IDs.
-    '[cap_comprovante_indicacao]': 45000,
-    '[cap_comprovantes_alugueis]': 44989,
-    '[cap_doc_projeto]': 5569, // Adicionado para documentos do projeto
-    '[cap_alimentacao]': 44988, // Este é o campo de TOTAL de alimentação
-    '[cap_alimentacao_itens]': 45029, // CORREÇÃO: Adicionando a chave da lista de itens de alimentação ao mapa de IDs.
-    '[cap_comprovantes_alimentacao]': 44990,
-};
-
 /**
  * Busca todos os dados de um projeto (principais, proposta, campos customizados)
  * e os processa em um único objeto estruturado.
@@ -176,22 +225,43 @@ const ALL_FIELD_IDS = {
  * @returns {Promise<object | null>} Um objeto com todos os dados do projeto ou null se falhar.
  */
 export async function buscarEProcessarProjeto(projectId) {
-    // 1. Buscar dados principais do projeto
+    // 1. Buscar dados principais do projeto primeiro para validar acesso
     const respProj = await getProject(projectId);
-    if (!respProj.sucesso) return null;
+
+    if (!respProj.sucesso) {
+        const erro = new Error(respProj.mensagem || 'Erro ao buscar projeto');
+        erro.status = respProj.status;
+        throw erro;
+    }
+
     const meta = respProj.dados;
+    if (!meta) {
+        const erro = new Error('Dados do projeto não encontrados.');
+        erro.status = 404;
+        throw erro;
+    }
 
-    // 2. Buscar dados da proposta ativa
-    const respProposal = await getProjectProposal(projectId);
-    if (!respProposal.sucesso) return null;
+    // 2. Buscar o restante dos dados em paralelo
+    const [respProposal, respCustom] = await Promise.all([
+        getProjectProposal(projectId),
+        getCustomFields(projectId)
+    ]);
+
+    // 3. Validar as outras respostas, que são importantes mas não críticas para a existência do projeto
+    if (!respProposal.sucesso) {
+        const erro = new Error(respProposal.mensagem || 'Erro ao buscar proposta');
+        erro.status = respProposal.status;
+        throw erro;
+    }
     const proposalData = respProposal.dados;
-
-    // 3. Buscar campos customizados
-    const respCustom = await getCustomFields(projectId);
-    if (!respCustom.sucesso) return null;
+    if (!respCustom.sucesso) {
+        const erro = new Error(respCustom.mensagem || 'Erro ao buscar campos customizados');
+        erro.status = respCustom.status;
+        throw erro;
+    }
     const campos = respCustom.dados || [];
 
-    // 4. Montar um objeto com os valores brutos dos campos customizados
+    // 4. Processar os dados recebidos (lógica inalterada)
     const raw = {};
     for (const item of campos) {
         const key = item.customField.key;
@@ -332,47 +402,6 @@ export async function atualizarMultiplosCampos(projectId, payload, fieldIds) {
         resultados: results
     };
 }
-
-/**
- * Mapeamento de chaves locais para as chaves de campo da API SolarMarket.
- * Usado para consistência em todo o aplicativo.
- */
-export const KEYS = {
-    // Chaves para campos de texto com listas de itens
-    MATERIAL: '[cap_custos]',
-    DIARIAS: '[cap_diarias]',
-    DESPESAS_PROJETO: '[cap_despesas_projeto]',
-    DESPESAS_FIXAS: '[cap_despesas_fixas_gerais]',
-    FERRAMENTA: '[cap_ferram_escada_descricao]',
-    INDICACAO: '[cap_dados_indicador]',
-    COMBUSTIVEL: '[cap_quilometragem_percorrida]',
-    ALIMENTACAO: '[cap_alimentacao_itens]',
-
-    // Chaves para valores monetários principais
-    VALOR_TOTAL: '[cap_valor_total]',
-    VALOR_KIT: '[cap_valor_kit_fotovoltaico]',
-
-    // Chaves para campos de totais calculados
-    TOTAL_MATERIAL: '[cap_total_custos_material]',
-    TOTAL_DIARIAS: '[cap_total_diarias]',
-    TOTAL_DESPESAS_PROJETO: '[cap_total_despesas_projeto]',
-    TOTAL_DESPESAS_FIXAS: '[cap_total_despesas_fixas_gerais]',
-    TOTAL_FERRAMENTA: '[cap_aluguel_ferramentas]',
-    TOTAL_COMBUSTIVEL: '[cap_combustivel]',
-    TOTAL_ALIMENTACAO: '[cap_alimentacao]',
-    TOTAL_INDICACAO: '[cap_valor_indicacao]',
-
-    // Chaves para campos de comprovantes (arquivos)
-    COMPROVANTES_DIARIAS: '[cap_comprovantes_diarias]',
-    COMPROVANTES_MATERIAL: '[cap_comprovantes]', 
-    COMPROVANTES_DESP_PROJETO: '[cap_comprovantes_desp_projeto]',
-    COMPROVANTES_DESP_FIXAS: '[cap_comprovantes_desp_fixas_gerais]',
-    COMPROVANTES_ALUGUEIS: '[cap_comprovantes_alugueis]',
-    COMPROVANTES_ALIMENTACAO: '[cap_comprovantes_alimentacao]',
-    COMPROVANTES_COMBUSTIVEL: '[cap_comprovantes_combust]',
-    COMPROVANTE_INDICACAO: '[cap_comprovante_indicacao]',
-    DOC_PROJETO: '[cap_doc_projeto]' // Adicionado para documentos do projeto
-};
 
 export async function atualizarCampoUnico(projectId, fieldKey, novoConteudo, fieldIds) {
     const fieldId = fieldIds[fieldKey];
