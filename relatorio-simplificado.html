@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>GDIS — Relatório Simplificado</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="./css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<body class="report-simplified">
+    <div class="report-container">
+        <!-- Cabeçalho de Navegação (Não sai na impressão) -->
+        <nav class="no-print report-nav">
+           <button id="btn-voltar" class="btn-ghost"><i class="fas fa-arrow-left"></i> Voltar</button>
+            <button id="btn-imprimir" class="btn"><i class="fas fa-print"></i> Imprimir / PDF</button>
+            <button id="btn-detalhado" class="btn-ghost" title="Ver versão detalhada"><i class="fas fa-file-invoice-dollar"></i> Detalhado</button>
+        </nav>
+
+        <!-- Cabeçalho do Relatório -->
+        <header class="report-header">
+            <div class="logo-area">
+                <h1>Relatório Simplificado</h1>
+                <p class="report-date">Gerado em: <span id="data-geracao"></span></p>
+            </div>
+            <div class="project-meta-box">
+                <div class="meta-row"><strong>Projeto:</strong> <span id="rep-id">#00000</span></div>
+                <div class="meta-row"><strong>Cliente:</strong> <span id="rep-cliente">Carregando...</span></div>
+                <div class="meta-row"><strong>Data Criação:</strong> <span id="rep-data">--/--/----</span></div>
+            </div>
+        </header>
+
+        <!-- Resumo Executivo (Sem percentuais) -->
+        <section class="report-section summary-section">
+            <h2>Resumo Executivo</h2>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <span>Valor Total Projeto</span>
+                    <strong id="sum-total-proj">R$ 0,00</strong>
+                </div>
+                <div class="summary-card">
+                    <span>Valor Kit</span>
+                    <strong id="sum-kit">R$ 0,00</strong>
+                </div>
+                <div class="summary-card highlight">
+                    <span>Valor GDIS (Base)</span>
+                    <strong id="sum-gdis">R$ 0,00</strong>
+                </div>
+                <div class="summary-card">
+                    <span>Total Custos</span>
+                    <strong id="sum-custos">R$ 0,00</strong>
+                </div>
+                <div class="summary-card result-card">
+                    <span>Lucro Bruto</span>
+                    <strong id="sum-lucro">R$ 0,00</strong>
+                </div>
+                <div class="summary-card">
+                    <span>Imposto</span>
+                    <strong id="sum-imposto">R$ 0,00</strong>
+                </div>
+                <div class="summary-card result-card">
+                    <span>Lucro Líquido</span>
+                    <strong id="sum-lucro-liquido">R$ 0,00</strong>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabelas Detalhadas -->
+        <div id="loading-message" class="text-center">Carregando dados...</div>
+        
+        <div id="report-content" class="oculto">
+            <div class="report-section"><h3>1. Materiais de Instalação</h3><table class="report-table" id="table-material"><thead><tr><th>Descrição</th><th class="text-right">Valor (R$)</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+            
+            <div class="report-section"><h3>2. Mão de Obra / Diárias</h3><table class="report-table" id="table-diarias"><thead><tr><th>Descrição</th><th class="text-right">Valor (R$)</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+            
+            <div class="report-section"><h3>3. Combustível</h3><table class="report-table" id="table-combustivel"><thead><tr><th>Descrição</th><th class="text-right">Valor (R$)</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+            
+            <div class="report-section"><h3>4. Alimentação</h3><table class="report-table" id="table-alimentacao"><thead><tr><th>Descrição</th><th class="text-right">Valor (R$)</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+            
+            <div class="report-section"><h3>5. Ferramentas / Escada</h3><table class="report-table" id="table-ferramenta"><thead><tr><th>Descrição</th><th class="text-right">Valor (R$)</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+            
+            <div class="report-section"><h3>6. Despesas do Projeto</h3><table class="report-table" id="table-desp-projeto"><thead><tr><th>Descrição</th><th class="text-right">Valor (R$)</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+            
+            <div class="report-section"><h3>7. Despesas Fixas / Administrativas</h3><table class="report-table" id="table-desp-fixas"><thead><tr><th>Descrição</th><th class="text-right">Valor (R$)</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+            
+            <div class="report-section"><h3>8. Indicação</h3><table class="report-table" id="table-indicacao"><thead><tr><th>Nome / Descrição</th><th class="text-right">Valor (R$)</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+        </div>
+    </div>
+    <script type="module" src="./js/relatorio-simplificado-controller.js"></script>
+</body>
+</html>

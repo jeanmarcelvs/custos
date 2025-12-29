@@ -17,11 +17,13 @@ const projectIdInput = $('project-id-input');
 const usernameSearchSpan = $('username-search');
 const usernameDetailsSpan = $('username-details');
 const btnLogoutSearch = $('btn-logout-search');
+let isAdministrator = false;
 
 // --- Detalhes ---
 const btnLogoutDetails = $('btn-logout');
 const btnSearchPage = $('btn-search-page');
 const btnEditPage = $('btn-edit-page');
+const btnReportPage = $('btn-report-page');
 
 /* =========================
    HELPERS
@@ -144,6 +146,7 @@ async function checkSessionAndInitialize() {
         const me = await getMe();
         if (!me?.sucesso) throw new Error();
 
+        isAdministrator = me.user?.admin;
         const email = me.user?.email;
         const username = email ? email.split('@')[0] : '';
         usernameSearchSpan.textContent = username;
@@ -151,6 +154,11 @@ async function checkSessionAndInitialize() {
 
         const projectId = new URLSearchParams(window.location.search).get('projectId');
         if (projectId) {
+            if (!isAdministrator) {
+                btnReportPage.textContent = 'Relatório';
+            } else {
+                btnReportPage.textContent = 'Relatório';
+            }
             await fetchAndRenderProject(projectId);
         } else {
             projectSearchContainer.classList.remove('oculto');
@@ -184,6 +192,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (projetoAtual) {
             sessionStorage.setItem('projetoParaEdicao', JSON.stringify(projetoAtual));
             window.location.href = `editar-projeto.html?projectId=${projetoAtual.id}`;
+        }
+    });
+
+    btnReportPage?.addEventListener('click', () => {
+        if (projetoAtual && !isAdministrator) {
+            window.location.href = `relatorio-simplificado.html?projectId=${projetoAtual.id}`;
+
+        }
+        else if (projetoAtual && isAdministrator) {
+            window.location.href = `relatorio-projeto.html?projectId=${projetoAtual.id}`;
         }
     });
 

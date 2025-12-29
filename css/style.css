@@ -1084,6 +1084,146 @@ textarea::placeholder,
     max-width: 100px;
 }
 
+/* Estilos para o ícone de mostrar/ocultar senha */
+.password-wrapper { 
+    position: relative;
+}
+
+/* Ajusta o padding do input para não ficar embaixo do ícone */
+.password-wrapper input[type="password"],
+.password-wrapper input[type="text"] {
+    padding-right: 45px; /* Espaço para o ícone */
+}
+
+.password-wrapper .fa-eye,
+.password-wrapper .fa-eye-slash {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 15px;
+    cursor: pointer;
+    color: var(--muted);
+}
+
+/* ==========================================================================
+   ESTILOS DO RELATÓRIO (RELATÓRIO-PROJETO.HTML)
+   ========================================================================== */
+
+.report-container {
+    max-width: 210mm; /* Largura A4 */
+    margin: 0 auto;
+    padding: 20px;
+    background: white;
+}
+
+.report-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 30px;
+    border-bottom: 2px solid var(--primary);
+    padding-bottom: 10px;
+}
+
+.report-header h1 {
+    font-size: 1.5rem;
+    color: var(--primary);
+    margin: 0;
+}
+
+.report-date {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 5px;
+}
+
+.project-meta-box {
+    text-align: right;
+    font-size: 0.9rem;
+}
+
+/* Resumo Executivo do Relatório */
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.summary-card {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-card span { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.summary-card strong { font-size: 1.1rem; margin-top: 5px; color: var(--text); }
+.summary-card.highlight { background-color: #e3f2fd; border-color: #bbdefb; }
+
+/* Tabelas do Relatório */
+.report-section { margin-bottom: 30px; page-break-inside: avoid; }
+.report-section h3 { font-size: 1.1rem; margin-bottom: 10px; color: var(--text); border-left: 4px solid var(--primary); padding-left: 10px; }
+.report-section.empty-section {
+    opacity: 0.5;
+    filter: grayscale(100%);
+}
+.report-section.empty-section h3 {
+    border-left-color: var(--border);
+    color: var(--muted);
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.report-table th, .report-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+}
+
+.report-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: var(--text);
+    border-top: 1px solid #dee2e6;
+}
+
+.table-total-row { background-color: #f1f3f5; font-weight: bold; }
+.table-total-row td { border-top: 2px solid #dee2e6; }
+
+/* Regras de Impressão */
+@media print {
+    @page { margin: 1cm; size: A4; }
+    body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none !important; }
+    .report-container { width: 100%; max-width: none; padding: 0; margin: 0; }
+    .summary-card { border: 1px solid #ccc; }
+    .summary-card.highlight { background-color: #e3f2fd !important; }
+    .report-header { border-bottom: 2px solid #000; }
+    h3 { border-left-color: #000; }
+}
+
+/* Relatório Simplificado */
+.report-simplified .summary-card {
+    justify-content: center;
+    min-height: 80px;
+    text-align: center;
+}
+
 /* Estilos para o Lightbox (Modal de Imagem) */
 .lightbox {
     position: fixed;
